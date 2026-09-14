@@ -10,6 +10,9 @@ import { resolve } from 'node:path';
  * `src/` lives outside the root, hence the fs.allow entry for the dev server.
  */
 export default defineConfig({
+  // Relative asset URLs, so the connector works whether it is hosted at a domain
+  // root or on a subpath (a GitHub Pages project site, a preview deploy).
+  base: './',
   root: 'public',
   publicDir: false,
   server: { fs: { allow: ['..'] } },
