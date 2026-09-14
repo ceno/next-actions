@@ -48,7 +48,7 @@ describe('migrate', () => {
   });
 
   it('drops unknown fields so they cannot eat the storage budget', () => {
-    const out = migrate({ showHeaders: true, somethingFromV2: 'x'.repeat(5000) }) as Record<string, unknown>;
+    const out = migrate({ showHeaders: true, somethingFromV2: 'x'.repeat(5000) }) as unknown as Record<string, unknown>;
     expect(out['somethingFromV2']).toBeUndefined();
   });
 

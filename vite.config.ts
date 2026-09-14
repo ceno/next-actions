@@ -23,6 +23,7 @@ export default defineConfig({
         settings: resolve(__dirname, 'public/settings.html'),
         authorize: resolve(__dirname, 'public/authorize.html'),
         spike: resolve(__dirname, 'public/spike.html'),
+        spikeReport: resolve(__dirname, 'public/spike-report.html'),
       },
     },
   },

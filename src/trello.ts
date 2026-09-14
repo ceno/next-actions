@@ -17,6 +17,7 @@ export interface TrelloT {
   getContext(): { board: string; card?: string; member: string; permissions?: unknown };
   alert(opts: { message: string; duration?: number; display?: string }): Promise<void>;
   popup(opts: Record<string, unknown>): Promise<void>;
+  modal(opts: Record<string, unknown>): Promise<void>;
   closePopup(): Promise<void>;
   sizeTo(target: string | number | HTMLElement): Promise<void>;
   /** iframe capabilities only; re-runs the callback when Trello wants a redraw. */

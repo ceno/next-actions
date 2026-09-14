@@ -26,7 +26,7 @@ describe('adapters', () => {
       { id: '2', name: 'b', state: 'incomplete', pos: 2 },
       { id: '3', name: 'c', complete: true, pos: 3 },
       { id: '4', name: 'd', checked: true, pos: 4 },
-    ] })!;
+    ] }, 0)!;
     expect(c.items.map((i) => i.complete)).toEqual([true, false, true, true]);
   });
 

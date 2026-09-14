@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Next Actions — M0b spike connector</title>
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  </head>
+  <body>
+    <!--
+      Register this as a SECOND dev Power-Up (capabilities: card-badges and
+      board-buttons) pointing at this page. It is not the product and must never
+      be registered as the production connector.
+    -->
+    <script type="module">
+      import { initializeSpike } from '../src/spike.ts';
+      initializeSpike();
+    </script>
+  </body>
+</html>

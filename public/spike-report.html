@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Next Actions — M0b spike results</title>
+    <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css" />
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+    <style>
+      body { margin: 0; padding: 16px; font: 14px/1.5 -apple-system, system-ui, sans-serif; }
+      .meta { opacity: 0.7; }
+      .toolbar { position: sticky; top: 0; background: #fff; padding: 8px 0; border-bottom: 1px solid #eee; }
+      .panel { border-left: 4px solid #c1c7d0; padding: 8px 14px; margin: 14px 0; background: #fafbfc; }
+      .panel.pass { border-color: #4bce97; }
+      .panel.fail { border-color: #f87168; }
+      .panel h2 { font-size: 14px; margin: 4px 0 8px; }
+      .panel p { margin: 4px 0; }
+      button { margin: 4px 6px 4px 0; }
+      pre { overflow-x: auto; background: #f4f5f7; padding: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar">
+      <button data-action="refresh">Re-read</button>
+      <button data-action="mode:probe">Mode: probe</button>
+      <button data-action="mode:ordering">Mode: ordering</button>
+      <button data-action="mode:stress">Mode: stress</button>
+      <button data-action="reset">Clear results</button>
+      <span class="meta">Switch mode, then refresh the Trello board.</span>
+    </div>
+    <main id="report"></main>
+    <script type="module">
+      import { mountReport } from '../src/spike-report.ts';
+      mountReport(document.getElementById('report'));
+    </script>
+  </body>
+</html>
