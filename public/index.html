@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Next Actions — connector</title>
+    <!--
+      Unversioned by design: p.trellocdn.com always serves current and there is no
+      way to pin a version (SPEC.md 2.9). The connector iframe must be served with
+      a short cache TTL and WITHOUT X-Frame-Options: DENY — a security-header
+      preset that sends it breaks the Power-Up silently.
+    -->
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  </head>
+  <body>
+    <script type="module">
+      import { initialize } from '../src/connector.ts';
+      initialize();
+    </script>
+  </body>
+</html>

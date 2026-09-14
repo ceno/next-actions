@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Next Actions — connect</title>
+    <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css" />
+    <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  </head>
+  <body>
+    <!--
+      Path B only. Needed because checklist items are not reliably available from
+      the client library inside card-badges (SPEC.md 6.2). If E1 says otherwise,
+      this page and the two authorization capabilities are deleted.
+    -->
+    <p id="status">Next Actions needs read access to this board's checklists.</p>
+    <button id="connect" class="mod-primary">Connect</button>
+    <script type="module">
+      const t = TrelloPowerUp.iframe();
+      document.getElementById('connect').addEventListener('click', async () => {
+        try {
+          await t.getRestApi().authorize({ scope: 'read', expiration: 'never' });
+          document.getElementById('status').textContent =
+            'Connected. Refresh the board to see the change.';
+        } catch (e) {
+          document.getElementById('status').textContent = 'Could not connect: ' + e;
+        }
+        await t.sizeTo('body');
+      });
+      t.render(() => t.sizeTo('body'));
+    </script>
+  </body>
+</html>
