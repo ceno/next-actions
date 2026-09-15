@@ -18,6 +18,19 @@ export interface Config {
   restApiKey: string;
   /** Emit a "Connect your account" badge when Path B has no token. */
   showUnauthorizedBadge: boolean;
+  /**
+   * Render the data path's failure REASON as the badge text.
+   *
+   * This exists because on this Trello client the card front is the only
+   * Power-Up surface that paints at all: capability callbacks fire and popups
+   * load, but no popup, modal or menu ever renders. No console, no settings
+   * page, no spike report. The badge is the whole debugging channel, so it has
+   * to be able to carry a message.
+   *
+   * Never ship this on: the reason strings are diagnostics, not user-facing
+   * copy, and they bypass the localizer.
+   */
+  debugBadges: boolean;
 }
 
 export const CONFIG: Config = {
@@ -43,4 +56,7 @@ export const CONFIG: Config = {
   restApiKey: 'e93523a47d399cc382f41c7f220137ab',
 
   showUnauthorizedBadge: true,
+
+  // Off. See the field's doc comment before ever turning this on.
+  debugBadges: false,
 };

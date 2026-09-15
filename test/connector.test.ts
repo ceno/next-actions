@@ -116,6 +116,35 @@ describe('card-badges, end to end, on the shipped config', () => {
     expect(badges.map((b) => b.text)).not.toContain(GLYPH_INCOMPLETE);
   });
 
+  /**
+   * The regression that took the whole Power-Up down, not just Path B.
+   *
+   * `t.getRestApi()` throws SYNCHRONOUSLY when the client library was not given
+   * an `appKey`. `t.getRestApi().isAuthorized().catch(...)` does not help: the
+   * throw happens before there is a promise to attach a catch to. Because
+   * `authorization-status` called it on every board load, the capability threw
+   * every time, and Trello stopped loading the connector at all.
+   */
+  it('survives a client library that has no REST API at all', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) })));
+
+    const t = fakeT({
+      badges: { checkItems: 5, checkItemsChecked: 2 },
+      board: 'b-throw',
+      member: 'm-throw',
+      card: 'card-throw',
+    });
+    // No appKey => the library refuses to hand one over.
+    (t as unknown as { getRestApi: () => never }).getRestApi = () => {
+      throw new Error('getRestApi requires an appKey');
+    };
+
+    // Must not reject, and must still render the best truth available.
+    await expect(cardBadges(t)).resolves.toEqual([
+      expect.objectContaining({ text: '2/5' }),
+    ]);
+  });
+
   it('asks the user to connect when nothing at all is knowable', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) })));
 

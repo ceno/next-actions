@@ -20,7 +20,7 @@ import {
 } from './data';
 import { LOCALIZATION, localizer } from './i18n';
 import { clearSettings, loadSettings } from './settings';
-import { powerUp, type TrelloT } from './trello';
+import { powerUp, type TrelloRestApi, type TrelloT } from './trello';
 import type { Badge, Settings } from './types';
 
 const restSource = createRestSource({
@@ -67,6 +67,30 @@ async function currentSettings(t: TrelloT): Promise<Settings> {
   return value;
 }
 
+/**
+ * `t.getRestApi()` THROWS - synchronously - when the client library was not
+ * initialized with an `appKey`. Every call site must therefore be guarded, not
+ * just the promise it returns: `t.getRestApi().isAuthorized().catch(...)` still
+ * takes the throw, because the throw happens before there is a promise to catch.
+ *
+ * Getting this wrong took down more than Path B. The `authorization-status`
+ * capability threw on every invocation, and a capability that throws is a
+ * Power-Up Trello stops asking.
+ */
+function restApi(t: TrelloT): TrelloRestApi | null {
+  try {
+    return t.getRestApi();
+  } catch {
+    return null;
+  }
+}
+
+async function isAuthorized(t: TrelloT): Promise<boolean> {
+  const api = restApi(t);
+  if (!api) return false;
+  return api.isAuthorized().catch(() => false);
+}
+
 export async function cardBadges(t: TrelloT): Promise<Badge[]> {
   let cardId = '';
   try {
@@ -85,6 +109,22 @@ export async function cardBadges(t: TrelloT): Promise<Badge[]> {
   ]);
 
   if (isUnavailable(checklists)) {
+    // Diagnostic only, and first: the whole point is to see the reason BEFORE
+    // any fallback hides it behind a plausible-looking pill.
+    if (CONFIG.debugBadges) {
+      const api = restApi(t);
+      const authorized = api
+        ? await api
+            .isAuthorized()
+            .then((v) => String(v))
+            .catch((e) => `threw:${String(e)}`)
+        : 'no-restApi';
+      return [
+        { text: `auth=${authorized}`, color: 'purple' },
+        { text: checklists.reason.slice(0, 60), color: 'red' },
+      ];
+    }
+
     // "We do not know" is not "there is nothing". Rendering [] here would make a
     // broken data source look like an empty board.
     if (CONFIG.degradeToAggregate) {
@@ -104,8 +144,7 @@ export async function cardBadges(t: TrelloT): Promise<Badge[]> {
       }
     }
     if (CONFIG.showUnauthorizedBadge && CONFIG.dataPath === 'rest') {
-      const authorized = await t.getRestApi().isAuthorized().catch(() => false);
-      if (!authorized) return [{ text: L('unauthorized'), color: 'light-gray' }];
+      if (!(await isAuthorized(t))) return [{ text: L('unauthorized'), color: 'light-gray' }];
     }
     return [];
   }
@@ -129,7 +168,7 @@ export function initialize(): void {
         settingsCache = null;
         restSource.invalidate();
         await clearSettings(t, [SETTINGS_KEY]);
-        await t.getRestApi().clearToken().catch(() => undefined);
+        await restApi(t)?.clearToken().catch(() => undefined);
       },
 
       /**
@@ -142,15 +181,27 @@ export function initialize(): void {
 
       'authorization-status': async (t: TrelloT) => {
         if (CONFIG.dataPath !== 'rest') return { authorized: true };
-        return { authorized: await t.getRestApi().isAuthorized().catch(() => false) };
+        return { authorized: await isAuthorized(t) };
       },
 
       'show-authorization': (t: TrelloT) =>
         t.popup({ title: localizer(t)('unauthorized'), url: './authorize.html', height: 200 }),
     },
-    // Declared here so the client library fetches the bundle for the board's
-    // locale before the first card-badges callback runs. Without it every
-    // localizeKey is a miss and every string silently falls back to English.
-    { localization: LOCALIZATION },
+    {
+      // Declared here so the client library fetches the bundle for the board's
+      // locale before the first card-badges callback runs. Without it every
+      // localizeKey is a miss and every string silently falls back to English.
+      localization: LOCALIZATION,
+
+      // REQUIRED for `t.getRestApi()` to exist at all. Without these the client
+      // library has nothing to authorize AS, and `getRestApi()` throws on every
+      // call - which is not a Path B problem but a whole-Power-Up problem, since
+      // the `authorization-status` capability calls it on every board load.
+      //
+      // Not optional, not a nicety, and documented nowhere near the capability
+      // that needs it.
+      appKey: CONFIG.restApiKey,
+      appName: 'Next Actions',
+    },
   );
 }
