@@ -6,7 +6,8 @@ Independently specified from public materials; not a copy of anyone's code.
 - `PLAN.md` — the approved plan: scope, architecture, milestones.
 - `SPEC.md` — the frozen specification. Every assertion tagged Observed / Inferred / Decided / Unresolved.
 - `docs/prior-art.md` — what else exists, and whether this needs building at all.
-- `docs/overnight-report.md` — what the last unsupervised session built, and what it could not.
+- `docs/overnight-report.md` — what the first unsupervised session built, and what it could not.
+- `docs/session-2026-09-15.md` — i18n routed end to end; why the real-payload fixture cannot be got over MCP.
 - `docs/reviews/` — three adversarial reviews of the plan, with citations.
 
 ## Status
@@ -19,7 +20,7 @@ host) and M0b (six blocking experiments), neither of which can be done without T
 
 ```
 npm install
-npm test          # 102 tests: unit, golden, property
+npm test          # 125 tests: unit, golden, property, i18n
 npm run typecheck
 npm run build     # -> dist/
 npm run dev       # local preview; Trello cannot load localhost
@@ -38,6 +39,8 @@ src/data.ts               the only file that knows where checklists come from
 src/settings.ts           load / save / migrate / form-enablement
 src/connector.ts          capability wiring
 src/constants.ts          caps, defaults, and every user-visible string
+src/i18n.ts               localizer, with LABELS as the permanent English fallback
+public/strings/en.json    the bundle Trello fetches; kept in step with LABELS by a test
 ```
 
 ## Hosting
@@ -52,6 +55,10 @@ Two things break a Power-Up silently, so check them on day one:
 
 ## Running the M0b experiments
 
+0. **Make a board that has checklists on it.** None of the account's current boards has a single one
+   (120 cards sampled, zero checklists), so there is nothing for E1–E7 to observe. Give it a spread:
+   an empty checklist, one all-complete, one partial, two sharing a `pos`, an unnamed item, and one
+   very long item name. Then leave it alone — see step 3.
 1. Build and host `dist/`.
 2. Register a **second** Power-Up at `trello.com/apps/admin` pointing at `…/spike.html`, with the
    `card-badges` and `board-buttons` capabilities.
