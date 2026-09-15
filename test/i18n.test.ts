@@ -11,7 +11,7 @@ import {
   type Localize,
 } from '../src/i18n';
 import type { TrelloT } from '../src/trello';
-import { list, settings } from './helpers';
+import { list, settings, unsuppressed } from './helpers';
 
 /**
  * Every bundle on disk, by path. A glob rather than a read of one known file, so
@@ -159,7 +159,7 @@ describe('computeBadges honours an injected localizer', () => {
   const shout: Localize = (key, data) => english(key, data).toUpperCase();
 
   it('routes the checklist tooltip through it', () => {
-    const out = computeBadges([list('Transport', 'xoo')], settings(), undefined, undefined, shout);
+    const out = computeBadges([list('Transport', 'xoo')], settings(), unsuppressed(), undefined, shout);
     expect(out[0]!.title).toBe('TRANSPORT — 1 OF 3 ITEMS FINISHED');
   });
 
@@ -178,12 +178,12 @@ describe('computeBadges honours an injected localizer', () => {
   });
 
   it('defaults to English, so every existing call site is unchanged', () => {
-    const out = computeBadges([list('Transport', 'xoo')], settings());
+    const out = computeBadges([list('Transport', 'xoo')], settings(), unsuppressed());
     expect(out[0]!.title).toBe('Transport — 1 of 3 items finished');
   });
 
   it('names an unnamed checklist rather than opening the tooltip with a dash', () => {
-    const out = computeBadges([list('', 'o')], settings());
+    const out = computeBadges([list('', 'o')], settings(), unsuppressed());
     expect(out[0]!.title).toBe('Checklist — 0 of 1 items finished');
   });
 

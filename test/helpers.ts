@@ -21,6 +21,20 @@ export function policy(over: Partial<BadgePolicy> = {}): BadgePolicy {
   return { ...DEFAULT_POLICY, ...over };
 }
 
+/**
+ * The shipped policy with S1 turned OFF, so a single-checklist fixture still
+ * emits its header.
+ *
+ * `suppressRedundantSingleHeader` defaults ON since 2026-09-15, which means the
+ * one-checklist fixtures most header tests use would emit nothing at all. Tests
+ * whose subject is header FORMATTING - the progress string, the colour, the
+ * tooltip - pin it off through this, exactly as `headersOnly` pins items off.
+ * A test that says "by default" about SUPPRESSION must use `policy()`.
+ */
+export function unsuppressed(over: Partial<BadgePolicy> = {}): BadgePolicy {
+  return policy({ suppressRedundantSingleHeader: false, ...over });
+}
+
 /** `'x'` = complete, `'o'` = incomplete. `list('Transport', 'xoo')` reads at a glance. */
 export function list(name: string, pattern: string, pos = 1, idPrefix = name): Checklist {
   const items: CheckItem[] = [...pattern].map((c, i) => ({

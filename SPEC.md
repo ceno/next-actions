@@ -117,8 +117,14 @@ Supporting observations:
   verbatim.
 - **[O]** On a single-checklist card the header badge duplicates Trello's own `☑ 0/3` badge almost
   verbatim. The vendor does not suppress this.
-  **[U-S1]** We make suppression an option, `suppressRedundantSingleHeader`, default `false` (match the
-  observation). Cheap to flip once someone looks at a real board.
+  **[D-S1]** RESOLVED 2026-09-15 on a live board: default `true`. The vendor does not suppress it; we
+  do. On a one-checklist card the header restates Trello's native badge and adds only the checklist
+  name, which is most often the default "Checklist". 130 of the 132 checklist-bearing cards on the
+  board examined had exactly one checklist, so the header was duplication on 98% of them.
+  Deliberately scoped to the single-checklist case: with two or more, Trello's native badge shows only
+  the COMBINED total, so per-checklist names and counts are the only way to attribute an item.
+  The Path C aggregate forces this OFF for its own output (`connector.ts`) - it synthesises exactly one
+  checklist, so suppressing it would render a blank card instead of a degraded one.
 
 ### 3.2 What we do not control
 

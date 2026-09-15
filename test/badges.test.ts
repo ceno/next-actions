@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeBadges, formatProgress, truncate } from '../src/badges';
 import { DEFAULT_CAPS, DEFAULT_SETTINGS, GLYPH_COMPLETE, GLYPH_INCOMPLETE } from '../src/constants';
-import { headersOnly, list, policy, settings, texts } from './helpers';
+import { headersOnly, list, policy, settings, texts, unsuppressed } from './helpers';
 
 describe('empty and degenerate input', () => {
   it('returns an empty array for a card with no checklists', () => {
@@ -10,13 +10,13 @@ describe('empty and degenerate input', () => {
 
   it('never emits a badge with empty or whitespace-only text', () => {
     const anonymous = { id: 'c', name: '', pos: 1, items: [{ id: 'i', name: '', complete: false, pos: 1 }] };
-    const out = computeBadges([anonymous], settings({ showIncompleteItems: true }));
+    const out = computeBadges([anonymous], settings({ showIncompleteItems: true }), unsuppressed());
     expect(out.length).toBe(2);
     for (const b of out) expect(b.text.trim()).not.toBe('');
   });
 
   it('renders an unnamed checklist as bare progress, with no trailing space', () => {
-    const out = computeBadges([{ id: 'c', name: '', pos: 1, items: [] }], DEFAULT_SETTINGS);
+    const out = computeBadges([{ id: 'c', name: '', pos: 1, items: [] }], DEFAULT_SETTINGS, unsuppressed());
     expect(out[0]!.text).toBe('0/0');
   });
 
@@ -29,12 +29,12 @@ describe('empty and degenerate input', () => {
 
 describe('header badges', () => {
   it('formats as "<progress> <name>"', () => {
-    const out = computeBadges([list('Place to stay', 'xx')], DEFAULT_SETTINGS);
+    const out = computeBadges([list('Place to stay', 'xx')], DEFAULT_SETTINGS, unsuppressed());
     expect(out[0]!.text).toBe('2/2 Place to stay');
   });
 
   it('formats as a percentage when asked', () => {
-    const out = computeBadges([list('Transport', 'xoo')], settings({ progressFormat: 'percent' }));
+    const out = computeBadges([list('Transport', 'xoo')], settings({ progressFormat: 'percent' }), unsuppressed());
     expect(out[0]!.text).toBe('33% Transport');
   });
 
@@ -44,33 +44,43 @@ describe('header badges', () => {
   });
 
   it('omits the colour field entirely when the colour is "none"', () => {
-    const out = computeBadges([list('A', 'xx')], settings({ finishedColor: 'none' }));
+    const out = computeBadges([list('A', 'xx')], settings({ finishedColor: 'none' }), unsuppressed());
     expect(out[0]!).not.toHaveProperty('color');
   });
 
   it('does not special-case a checklist named "Checklist"', () => {
-    const out = computeBadges([list('Checklist', 'ooo')], DEFAULT_SETTINGS);
+    const out = computeBadges([list('Checklist', 'ooo')], DEFAULT_SETTINGS, unsuppressed());
     expect(out[0]!.text).toBe('0/3 Checklist');
   });
 
   it('renders 0/N in the unfinished colour', () => {
-    const out = computeBadges([list('A', 'ooo')], DEFAULT_SETTINGS);
+    const out = computeBadges([list('A', 'ooo')], DEFAULT_SETTINGS, unsuppressed());
     expect(out[0]!.color).toBe('orange');
   });
 
   it('carries the state in the tooltip, not only in the colour', () => {
-    const out = computeBadges([list('Transport', 'xoo')], DEFAULT_SETTINGS);
+    const out = computeBadges([list('Transport', 'xoo')], DEFAULT_SETTINGS, unsuppressed());
     expect(out[0]!.title).toBe('Transport — 1 of 3 items finished');
   });
 
-  it('suppresses nothing by default on a single-checklist card (observed behaviour)', () => {
+  it('S1: suppresses the redundant single header BY DEFAULT', () => {
+    // Resolved 2026-09-15 on a live board. The vendor does not suppress this;
+    // we do, because on a one-checklist card the header restates Trello's own
+    // native badge and adds only the checklist name.
     const out = computeBadges([list('Checklist', 'ooo')], headersOnly());
-    expect(out.length).toBe(1);
+    expect(out).toEqual([]);
   });
 
-  it('S1: suppresses the redundant single header when the option is on', () => {
-    const out = computeBadges([list('Checklist', 'ooo')], headersOnly(), policy({ suppressRedundantSingleHeader: true }));
-    expect(out).toEqual([]);
+  it('S1: keeps the header when the card has more than one checklist', () => {
+    // Trello's native badge sums ALL checklists, so with two of them the
+    // per-checklist names and counts are the only way to tell them apart.
+    const out = computeBadges([list('Transport', 'oo', 1), list('Packing', 'xo', 2)], headersOnly());
+    expect(texts(out)).toEqual(['0/2 Transport', '1/2 Packing']);
+  });
+
+  it('S1: emits the single header when the option is off', () => {
+    const out = computeBadges([list('Checklist', 'ooo')], headersOnly(), unsuppressed());
+    expect(out.length).toBe(1);
   });
 });
 
@@ -102,16 +112,27 @@ describe('item badges', () => {
   // the one thing this Power-Up exists to show, so the zero-config state now
   // includes the unfinished items. See DEFAULT_SETTINGS.
   it('emits item badges by default - the item text is the product', () => {
+    // Single checklist, so S1 drops the header: the items ARE the whole output.
     const out = computeBadges([list('L', 'xoo')], DEFAULT_SETTINGS);
     expect(texts(out)).toEqual([
-      '1/3 L',
       `${GLYPH_INCOMPLETE} L item 1`,
       `${GLYPH_INCOMPLETE} L item 2`,
     ]);
   });
 
+  it('emits the header alongside the items on a multi-checklist card', () => {
+    const out = computeBadges([list('A', 'xo', 1), list('B', 'oo', 2)], DEFAULT_SETTINGS);
+    expect(texts(out)).toEqual([
+      '1/2 A',
+      `${GLYPH_INCOMPLETE} A item 1`,
+      '0/2 B',
+      `${GLYPH_INCOMPLETE} B item 0`,
+      `${GLYPH_INCOMPLETE} B item 1`,
+    ]);
+  });
+
   it('emits no item badges once the user turns them off', () => {
-    const out = computeBadges([list('L', 'xoo')], headersOnly());
+    const out = computeBadges([list('L', 'xoo')], headersOnly(), unsuppressed());
     expect(out.length).toBe(1);
   });
 });
@@ -238,13 +259,13 @@ describe('A4/A5 - rounding and the empty checklist (UNRESOLVED, chosen by fiat)'
   });
 
   it('treats a 0-item checklist as complete by default', () => {
-    const out = computeBadges([{ id: 'c', name: 'Empty', pos: 1, items: [] }], DEFAULT_SETTINGS);
+    const out = computeBadges([{ id: 'c', name: 'Empty', pos: 1, items: [] }], DEFAULT_SETTINGS, unsuppressed());
     expect(out[0]!.color).toBe('green');
     expect(formatProgress(0, 0, s, policy())).toBe('100%');
   });
 
   it('treats it as incomplete when the option is flipped', () => {
-    const out = computeBadges([{ id: 'c', name: 'Empty', pos: 1, items: [] }], DEFAULT_SETTINGS, policy({ emptyChecklistIsComplete: false }));
+    const out = computeBadges([{ id: 'c', name: 'Empty', pos: 1, items: [] }], DEFAULT_SETTINGS, unsuppressed({ emptyChecklistIsComplete: false }));
     expect(out[0]!.color).toBe('orange');
     expect(formatProgress(0, 0, s, policy({ emptyChecklistIsComplete: false }))).toBe('0%');
   });
@@ -262,7 +283,7 @@ describe('caps', () => {
 
   it('caps badge text length', () => {
     const c = { id: 'c', name: 'x'.repeat(500), pos: 1, items: [] };
-    const out = computeBadges([c], DEFAULT_SETTINGS);
+    const out = computeBadges([c], DEFAULT_SETTINGS, unsuppressed());
     expect([...out[0]!.text].length).toBe(DEFAULT_CAPS.maxTextLength);
   });
 

@@ -8,7 +8,7 @@
 
 import { computeBadges } from './badges';
 import { CONFIG, REST_API_OPTIONS } from './config';
-import { DEFAULT_SETTINGS, SETTINGS_KEY } from './constants';
+import { DEFAULT_POLICY, DEFAULT_SETTINGS, SETTINGS_KEY } from './constants';
 import {
   aggregateSource,
   boardChecklistsUrl,
@@ -134,10 +134,18 @@ export async function cardBadges(t: TrelloT): Promise<Badge[]> {
         // placeholders with no names. Honouring the item settings here would
         // draw a row of bare checkboxes that say nothing, so the aggregate
         // answers the header badge only - whatever the user asked for.
+        //
+        // S1 must also be forced OFF. It suppresses the header of a lone
+        // checklist as redundant, and Path C synthesises exactly one - so the
+        // shipped default would suppress the only badge the fallback can emit
+        // and render a blank card, which is the precise failure degrading to an
+        // aggregate exists to prevent. The redundancy argument does not apply
+        // here anyway: this is the degraded state, and a duplicated count is the
+        // point of it.
         return computeBadges(
           fallback,
           { ...settings, showIncompleteItems: false, showCompletedItems: false },
-          undefined,
+          { ...DEFAULT_POLICY, suppressRedundantSingleHeader: false },
           undefined,
           L,
         );

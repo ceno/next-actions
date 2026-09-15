@@ -69,14 +69,17 @@ describe('card-badges, end to end, on the shipped config', () => {
       fakeT({ authorized: true, board: 'b-ok', member: 'm-ok', card: 'card-ok' }),
     );
 
-    // This is the product: the header, then the unfinished items by name.
+    // This is the product: the unfinished items, by name.
+    //
+    // No header, and that is the shipped default since S1 was resolved: the
+    // fixture card has ONE checklist, whose header would only restate Trello's
+    // own native badge sitting beside it. The items are the part Trello does
+    // not already show.
     expect(badges.map((b) => b.text)).toEqual([
-      '2/5 Next Actions',
       `${GLYPH_INCOMPLETE} Book planes`,
       `${GLYPH_INCOMPLETE} Buy tickets`,
       `${GLYPH_INCOMPLETE} Book hotels and such`,
     ]);
-    expect(badges[0]!.color).toBe('orange');
   });
 
   it('signs the REST call with the configured key, or the board returns 401', async () => {

@@ -29,7 +29,19 @@ export const DEFAULT_POLICY: BadgePolicy = {
   itemLimitScope: 'per-checklist', // A3
   percentRounding: 'round', // A4
   emptyChecklistIsComplete: true, // A5
-  suppressRedundantSingleHeader: false, // S1 - matches the observed behaviour
+  // S1, RESOLVED 2026-09-15 on a live board. Was `false` to match the observed
+  // vendor behaviour, with SPEC.md noting it was "cheap to flip once someone
+  // looks at a real board". Someone did: on a single-checklist card our header
+  // badge restates Trello's own `☑ n/m` and adds only the checklist name, which
+  // is most often the useless default "Checklist". 130 of the 132 checklist-
+  // bearing cards on that board have exactly one checklist, so the header was
+  // pure duplication on 98% of them.
+  //
+  // Kept scoped to the single-checklist case rather than dropping headers
+  // outright: with two or more checklists Trello's native badge shows only the
+  // COMBINED total, so the per-checklist name and progress are the only way to
+  // tell which checklist an item belongs to. That is information, not noise.
+  suppressRedundantSingleHeader: true,
 };
 
 /**
