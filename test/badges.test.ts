@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { computeBadges, formatProgress, truncate } from '../src/badges';
 import { DEFAULT_CAPS, DEFAULT_SETTINGS, GLYPH_COMPLETE, GLYPH_INCOMPLETE } from '../src/constants';
-import { headersOnly, list, policy, settings, texts, unsuppressed } from './helpers';
+import { headersOnly, list, policy, rawTexts, settings, texts, unsuppressed } from './helpers';
+
+/** Small caps, so padding behaviour is cheap to assert. */
+const CAPS_32 = { maxBadges: 20, maxTextLength: 32, itemPadWidth: 24 };
 
 describe('empty and degenerate input', () => {
   it('returns an empty array for a card with no checklists', () => {
@@ -81,6 +84,68 @@ describe('header badges', () => {
   it('S1: emits the single header when the option is off', () => {
     const out = computeBadges([list('Checklist', 'ooo')], headersOnly(), unsuppressed());
     expect(out.length).toBe(1);
+  });
+});
+
+describe('itemsOnOwnLine - the fixed-width pad that forces a line break', () => {
+  // Trello exposes no layout control: card-badges returns text, colour, icon and
+  // title, and places our badges as one flex item in the SAME wrapping row as its
+  // own. Padding the badge out is the only way to push it onto its own line.
+  // See padToWidth in badges.ts for the measurements behind this.
+
+  it('pads a short item badge out towards the target width', () => {
+    const out = computeBadges([list('L', 'o')], settings({ showHeaders: false }), policy(), CAPS_32);
+    const bare = `${GLYPH_INCOMPLETE} L item 0`;
+    expect(rawTexts(out)[0]!.length).toBeGreaterThan(bare.length);
+  });
+
+  it('never exceeds maxTextLength, padding included', () => {
+    const out = computeBadges([list('L', 'o')], settings({ showHeaders: false }), policy(), CAPS_32);
+    expect([...rawTexts(out)[0]!].length).toBeLessThanOrEqual(32);
+  });
+
+  it('pads by WIDTH, so a longer item gets less padding than a short one', () => {
+    const caps = { maxBadges: 20, maxTextLength: 120, itemPadWidth: 60 };
+    const short = { id: 'a', name: 'L', pos: 1, items: [{ id: 'i', name: 'hi', complete: false, pos: 1 }] };
+    const long = { id: 'b', name: 'L', pos: 1, items: [{ id: 'i', name: 'y'.repeat(25), complete: false, pos: 1 }] };
+    const padOf = (c: typeof short) =>
+      (rawTexts(computeBadges([c], settings({ showHeaders: false }), policy(), caps))[0]!.match(/\u00a0/g) ?? []).length;
+    expect(padOf(short)).toBeGreaterThan(padOf(long));
+  });
+
+  it('pads with U+00A0, not a normal space, which would collapse to nothing', () => {
+    const out = computeBadges([list('L', 'o')], settings({ showHeaders: false }), policy(), CAPS_32);
+    expect(rawTexts(out)[0]!.endsWith('\u00a0')).toBe(true);
+    expect(rawTexts(out)[0]).toMatch(/\u00a0{2,}$/);
+  });
+
+  it('puts the padding AFTER the text, so clipping only ever eats blank space', () => {
+    const out = computeBadges([list('L', 'o')], settings({ showHeaders: false }), policy(), CAPS_32);
+    expect(rawTexts(out)[0]!.startsWith(`${GLYPH_INCOMPLETE} L item 0`)).toBe(true);
+  });
+
+  it('never costs a character of real text - the cap applies before the pad', () => {
+    const long = { id: 'c', name: 'L', pos: 1, items: [{ id: 'i', name: 'y'.repeat(200), complete: false, pos: 1 }] };
+    const padded = computeBadges([long], settings({ showHeaders: false }), policy(), CAPS_32);
+    const bare = computeBadges([long], settings({ showHeaders: false }), policy({ itemsOnOwnLine: false }), CAPS_32);
+    expect(texts(padded)).toEqual(texts(bare));
+    expect([...texts(bare)[0]!].length).toBe(32);
+    // Already wider than the target, so it is left entirely alone.
+    expect(rawTexts(padded)[0]).toBe(rawTexts(bare)[0]);
+  });
+
+  it('leaves the text untouched when the option is off', () => {
+    const out = computeBadges([list('L', 'o')], settings({ showHeaders: false }), policy({ itemsOnOwnLine: false }), CAPS_32);
+    expect(rawTexts(out)[0]).toBe(`${GLYPH_INCOMPLETE} L item 0`);
+  });
+
+  it('never pads a COLOURED badge - there the blank space would draw as a bar', () => {
+    // Header badges carry a colour. Only item badges, which never do, are padded.
+    const out = computeBadges([list('A', 'o', 1), list('B', 'o', 2)], headersOnly(), policy(), CAPS_32);
+    for (const b of out) {
+      expect(b).toHaveProperty('color');
+      expect(b.text).not.toMatch(/\u00a0/);
+    }
   });
 });
 

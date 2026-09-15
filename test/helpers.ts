@@ -46,4 +46,18 @@ export function list(name: string, pattern: string, pos = 1, idPrefix = name): C
   return { id: idPrefix, name, pos, items };
 }
 
-export const texts = (badges: { text: string }[]): string[] => badges.map((b) => b.text);
+/**
+ * Badge texts with the layout padding stripped.
+ *
+ * Item badges are padded out to a fixed width with U+00A0 so Trello pushes them
+ * onto their own line (`itemsOnOwnLine`, on by default). That padding is a
+ * rendering concern, not content, and restating it in fifty assertions would
+ * bury what each test is actually about. Tests whose subject IS the padding use
+ * `rawTexts` and assert on it directly.
+ */
+export const unpad = (text: string): string => text.replace(/\u00a0+$/, '');
+
+export const texts = (badges: { text: string }[]): string[] => badges.map((b) => unpad(b.text));
+
+/** Badge texts exactly as they go to Trello, padding included. */
+export const rawTexts = (badges: { text: string }[]): string[] => badges.map((b) => b.text);

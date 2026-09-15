@@ -21,7 +21,7 @@ import { computeBadges } from '../src/badges';
 import { adaptChecklists, isUnavailable } from '../src/data';
 import { DEFAULT_SETTINGS } from '../src/constants';
 import raw from './fixtures/real-card-checklists.json';
-import { headersOnly, unsuppressed } from './helpers';
+import { headersOnly, texts, unsuppressed } from './helpers';
 
 describe('a real Trello payload', () => {
   it('adapts without being judged Unavailable', () => {
@@ -67,7 +67,7 @@ describe('a real Trello payload', () => {
     const badges = computeBadges(out, DEFAULT_SETTINGS);
     // No header: the card has one checklist, so S1 suppresses it as a restatement
     // of Trello's own native badge. The items are what Trello does not show.
-    expect(badges.map((b) => b.text)).toEqual([
+    expect(texts(badges)).toEqual([
       '☐ Book planes',
       '☐ Buy tickets',
       '☐ Book hotels and such',
@@ -98,7 +98,7 @@ describe('a real Trello payload', () => {
     const out = adaptChecklists(raw);
     if (isUnavailable(out)) throw new Error(out.reason);
     const badges = computeBadges(out, { ...DEFAULT_SETTINGS, showIncompleteItems: true }, unsuppressed());
-    expect(badges.map((b) => b.text)).toEqual([
+    expect(texts(badges)).toEqual([
       '2/5 Next Actions',
       '☐ Book planes',
       '☐ Buy tickets',

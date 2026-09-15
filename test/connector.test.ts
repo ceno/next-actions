@@ -21,6 +21,7 @@ import { cardBadges } from '../src/connector';
 import { GLYPH_INCOMPLETE } from '../src/constants';
 import type { TrelloT } from '../src/trello';
 import raw from './fixtures/real-card-checklists.json';
+import { texts } from './helpers';
 
 /** The real captured payload, shaped as the board-level REST response. */
 const boardPayload = (cardId: string) =>
@@ -75,7 +76,7 @@ describe('card-badges, end to end, on the shipped config', () => {
     // fixture card has ONE checklist, whose header would only restate Trello's
     // own native badge sitting beside it. The items are the part Trello does
     // not already show.
-    expect(badges.map((b) => b.text)).toEqual([
+    expect(texts(badges)).toEqual([
       `${GLYPH_INCOMPLETE} Book planes`,
       `${GLYPH_INCOMPLETE} Buy tickets`,
       `${GLYPH_INCOMPLETE} Book hotels and such`,
@@ -114,7 +115,7 @@ describe('card-badges, end to end, on the shipped config', () => {
 
     // Path C has the counts and nothing else. Item badges are ON by default, and
     // the fallback must still refuse to draw its nameless placeholder items.
-    expect(badges.map((b) => b.text)).toEqual(['2/5']);
+    expect(texts(badges)).toEqual(['2/5']);
     expect(badges.map((b) => b.text)).not.toContain('0/0');
     expect(badges.map((b) => b.text)).not.toContain(GLYPH_INCOMPLETE);
   });
@@ -157,6 +158,6 @@ describe('card-badges, end to end, on the shipped config', () => {
 
     // Not an empty card front: an unauthorized Power-Up that renders nothing is
     // indistinguishable from a board with no checklists on it.
-    expect(badges.map((b) => b.text)).toEqual(['Connect your account']);
+    expect(texts(badges)).toEqual(['Connect your account']);
   });
 });

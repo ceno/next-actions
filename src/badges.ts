@@ -89,7 +89,7 @@ export function computeBadges(
         if (spent >= allowance) continue;
         spent += 1;
       }
-      badges.push(itemBadge(item, caps, localize));
+      badges.push(itemBadge(item, policy, caps, localize));
     }
 
     if (perCard) budget -= spent;
@@ -178,12 +178,21 @@ function headerBadge(
   );
 }
 
-function itemBadge(item: CheckItem, caps: BadgeCaps, localize: Localize): Badge {
+function itemBadge(
+  item: CheckItem,
+  policy: BadgePolicy,
+  caps: BadgeCaps,
+  localize: Localize,
+): Badge {
   const glyph = item.complete ? GLYPH_COMPLETE : GLYPH_INCOMPLETE;
+  // Pad AFTER truncating, never before: the cap governs the visible text, and the
+  // padding is then added on top of it. Done the other way round the padding
+  // would eat the text budget and cost real words to buy a line break.
+  const text = truncate(join(glyph, item.name), caps.maxTextLength);
   return {
     // Item names render raw - no trimming, no normalisation, no capitalisation -
     // except for the defensive length cap. Only the truncation is ours.
-    text: truncate(join(glyph, item.name), caps.maxTextLength),
+    text: policy.itemsOnOwnLine ? padToWidth(text, caps) : text,
     // The glyph is not accessible on its own; the tooltip carries the state.
     // Two whole templates rather than one with an interpolated word: a translator
     // cannot reorder around a fragment they never see.
@@ -215,6 +224,56 @@ export function formatProgress(
 /** Joins a prefix to a possibly-empty name without leaving a trailing space. */
 function join(prefix: string, name: string): string {
   return name.length === 0 ? prefix : `${prefix} ${name}`;
+}
+
+/** U+00A0. A normal space would collapse; this one occupies width. */
+const NBSP = '\u00a0';
+
+/**
+ * How many non-breaking spaces one average glyph is worth. Measured: a glyph
+ * advances ~6.14px against ~3.35px for U+00A0, on a live card front.
+ */
+const CHAR_UNITS = 1.83;
+
+/**
+ * Pads an item badge out to a fixed width with non-breaking spaces, so it cannot
+ * fit beside Trello's own badges and is pushed onto its own line.
+ *
+ * This is a workaround for a platform constraint, and it is worth knowing why it
+ * is the only one available. `card-badges` returns text, colour, icon and title;
+ * Trello owns the layout and offers no line-break, ordering or width control
+ * (SPEC.md 3.2). Our badges are placed in a container that Trello renders as one
+ * flex item in the SAME wrapping row as its native badges, so a short item like
+ * "book flights" simply sits next to the native `2/5`. The badge span is
+ * `white-space: nowrap`, so a newline in the text renders as nothing at all.
+ *
+ * Three measured properties make the padding safe rather than merely clever:
+ *
+ *  - **It is invisible.** Item badges carry no colour, and every element in the
+ *    rendered chain has a fully transparent background, so trailing blank space
+ *    shows nothing. Never pad a COLOURED badge - there the padding would draw as
+ *    a wide bar of solid colour.
+ *  - **It cannot overflow.** The rendered badge width clamps to the container
+ *    (measured: 228px against a 256px card, unchanged from 60 through 80 pad
+ *    characters, with no card growth and no scroll).
+ *  - **Clipping is harmless**, because the padding is at the END. If anything is
+ *    cut it is blank space, never the item text.
+ *
+ * The target is `caps.itemPadWidth`, in nbsp units rather than characters, since
+ * a glyph is roughly `CHAR_UNITS` times as wide as a non-breaking space. Padding
+ * by raw character count instead made long items overshoot into Trello's clamp
+ * and draw a trailing ellipsis. See DEFAULT_CAPS for the measured window.
+ *
+ * The result is clamped to `maxTextLength` so that cap stays the ONE upper bound
+ * on badge text, padding included.
+ */
+function padToWidth(text: string, caps: BadgeCaps): string {
+  const points = [...text].length;
+  const used = points * CHAR_UNITS;
+  const pad = Math.ceil(caps.itemPadWidth - used);
+  if (pad <= 0) return text;
+  const room = Math.max(0, caps.maxTextLength - points);
+  return text + NBSP.repeat(Math.min(pad, room));
 }
 
 /**

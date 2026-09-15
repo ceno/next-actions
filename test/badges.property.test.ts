@@ -14,6 +14,7 @@ import { computeBadges, countComplete, isComplete } from '../src/badges';
 import { GLYPH_COMPLETE, GLYPH_INCOMPLETE } from '../src/constants';
 import type { BadgeCaps, BadgePolicy, CheckItem, Checklist, Limit, Settings } from '../src/types';
 import { BADGE_COLORS } from '../src/types';
+import { unpad } from './helpers';
 
 const arbLimit: fc.Arbitrary<Limit> = fc.oneof(
   fc.constant<Limit>('all'),
@@ -40,11 +41,13 @@ const arbPolicy: fc.Arbitrary<BadgePolicy> = fc.record({
   percentRounding: fc.constantFrom('round', 'floor') as fc.Arbitrary<BadgePolicy['percentRounding']>,
   emptyChecklistIsComplete: fc.boolean(),
   suppressRedundantSingleHeader: fc.boolean(),
+  itemsOnOwnLine: fc.boolean(),
 });
 
 const arbCaps: fc.Arbitrary<BadgeCaps> = fc.record({
   maxBadges: fc.integer({ min: 0, max: 40 }),
   maxTextLength: fc.integer({ min: 8, max: 80 }),
+  itemPadWidth: fc.integer({ min: 0, max: 80 }),
 });
 
 /** Names are made unique so that emitted badges can be traced back to their item. */
@@ -78,7 +81,7 @@ const arbCard: fc.Arbitrary<Checklist[]> = fc
   .map((cs) => [...cs]);
 
 /** Roomy caps, for properties about content rather than about the caps themselves. */
-const ROOMY: BadgeCaps = { maxBadges: 10_000, maxTextLength: 10_000 };
+const ROOMY: BadgeCaps = { maxBadges: 10_000, maxTextLength: 10_000, itemPadWidth: 0 };
 
 // 100 runs left the per-card item-budget mutant alive; 600 kills it reliably.
 // The suite is a few hundred milliseconds either way.
@@ -162,7 +165,7 @@ describe('properties', () => {
       fc.property(arbCard, arbSettings, arbPolicy, (card, s, p) => {
         const emitted = computeBadges(card, s, p, ROOMY)
           .filter((b) => isItemBadge(b.text))
-          .map((b) => b.text.slice(2)); // strip "<glyph> "
+          .map((b) => unpad(b.text).slice(2)); // strip "<glyph> " and the layout padding
 
         // The full ordering the function would have produced, unfiltered.
         const ordered: string[] = [];
@@ -268,10 +271,14 @@ describe('properties', () => {
         const uncapped = computeBadges(card, s, p, { ...ROOMY, maxBadges: c.maxBadges });
         expect(capped.length).toBe(uncapped.length);
         capped.forEach((b, i) => {
-          const full = uncapped[i]!.text;
-          const points = [...b.text];
+          // Unpadded on both sides: the layout padding is a function of
+          // maxTextLength, so a padded badge is never a prefix of a differently
+          // padded one. Truncation is the subject here, not padding.
+          const full = unpad(uncapped[i]!.text);
+          const text = unpad(b.text);
+          const points = [...text];
           expect(points.length).toBeLessThanOrEqual(c.maxTextLength);
-          if (b.text !== full) {
+          if (text !== full) {
             expect(points[points.length - 1]).toBe('…');
             expect(full.startsWith(points.slice(0, -1).join(''))).toBe(true);
           }

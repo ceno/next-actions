@@ -89,6 +89,12 @@ export interface BadgePolicy {
   emptyChecklistIsComplete: boolean;
   /** S1. On a single-checklist card the header duplicates Trello's own badge. Suppress it? */
   suppressRedundantSingleHeader: boolean;
+  /**
+   * Pad item badges to a fixed width so each one is pushed onto its own line,
+   * below Trello's native badges, instead of flowing inline beside them.
+   * See `padToWidth` in badges.ts for why padding is the only lever available.
+   */
+  itemsOnOwnLine: boolean;
 }
 
 /** Hard internal caps. Not settings; they win over every user choice, including `'all'`. */
@@ -96,4 +102,9 @@ export interface BadgeCaps {
   maxBadges: number;
   /** Counted in code points, so a surrogate pair is never split. */
   maxTextLength: number;
+  /**
+   * Target rendered width for a padded item badge, measured in non-breaking
+   * spaces. Not a character count: see DEFAULT_CAPS for the measurements.
+   */
+  itemPadWidth: number;
 }

@@ -131,7 +131,16 @@ Supporting observations:
 - **[O]** Trello's native `☑ n/m` badge sums all checklists on the card and turns green at 100%. It is
   untouched by us and will sit beside our badges.
 - **[O]** Power-Up badges are appended after **all** native badges, including the due-date badge.
-- **[O]** Badges flow and wrap inline; a header badge does not force a line break.
+- **[O]** Badges flow and wrap inline; a header badge does not force a line break. Our badges are
+  placed in a container Trello renders as a single flex item in the SAME wrapping row as its own
+  native badges, so a short item sits beside the native `n/m` rather than under it. The badge span is
+  `white-space: nowrap`, so a newline in the text renders as nothing.
+  **[D]** `itemsOnOwnLine` (default on) works around this by padding item badges with U+00A0 to a
+  target WIDTH, so they cannot fit beside the native badges. Measured window on a 256px card: own
+  line from ~180px, Trello's own clamp and a visible trailing "..." from ~228px. Safe because item
+  badges carry no colour and every element in the chain is transparent, because the rendered width
+  clamps rather than overflowing, and because the padding is appended AFTER truncation - so clipping
+  only ever eats blank space and the cap still bounds the text. Never pad a coloured badge.
   **[I]** This is flex-wrap behaviour. It is undocumented and inside the blast radius of the Nov 2025
   rendering rewrite (§2.9). Nothing in our logic may depend on where a wrap falls.
 

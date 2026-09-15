@@ -17,6 +17,35 @@ export const ELLIPSIS = '…';
 export const DEFAULT_CAPS: BadgeCaps = {
   maxBadges: 20,
   maxTextLength: 64,
+
+  /**
+   * Target width for a padded item badge, measured in non-breaking spaces.
+   *
+   * A width, not a character count, because the two are not interchangeable: a
+   * non-breaking space advances ~3.35px while an average glyph advances ~6.14px,
+   * so padding every badge to the same NUMBER of characters makes a long one
+   * almost twice as wide as a short one. The first attempt did exactly that, and
+   * short items landed correctly while "Book hotels and such" overshot into the
+   * clamp and grew a trailing ellipsis.
+   *
+   * Measured on a live 256px card whose only native badge was Trello's `1/2` -
+   * the worst case, since the fewer native badges there are the wider ours must
+   * be to be pushed off their line:
+   *
+   *   width    own line?   Trello's ellipsis?
+   *   153px    no          no
+   *   180px    YES         no
+   *   221px    YES         no
+   *   228px    YES         YES   <- clamped, draws a visible "..."
+   *
+   * So the usable window is ~180-221px, and 60 nbsp (~200px) sits in the middle.
+   * Text already wider than this is left alone: `padToWidth` only ever pads, and
+   * a long item name is wide enough to break the line on its own.
+   *
+   * A heuristic tied to card width, font and zoom. If badges stop breaking to
+   * their own line, or grow a trailing "...", re-measure and change it here.
+   */
+  itemPadWidth: 60,
 };
 
 /**
@@ -42,6 +71,12 @@ export const DEFAULT_POLICY: BadgePolicy = {
   // COMBINED total, so the per-checklist name and progress are the only way to
   // tell which checklist an item belongs to. That is information, not noise.
   suppressRedundantSingleHeader: true,
+
+  // Requested from a real board: a short next action like "book flights" sits on
+  // the same line as Trello's native `1/2`, which reads as a continuation of it
+  // rather than as its own thing. Trello exposes no layout control at all, so a
+  // fixed-width pad is the only way to force the break - see `padToWidth`.
+  itemsOnOwnLine: true,
 };
 
 /**
