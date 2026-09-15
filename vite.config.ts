@@ -59,6 +59,29 @@ export default defineConfig({
   publicDir: false,
   plugins: [staticAssets()],
   server: { fs: { allow: ['..'] } },
+
+  /**
+   * `npm run host` serves the BUILT `dist/` through this, behind a tunnel, as the
+   * connector Trello frames. Two settings here are load-bearing:
+   *
+   * `Cache-Control: no-store` - the connector iframe is re-fetched on every board
+   * load, and that is the only way to ship a fix. A previous dev server sent no
+   * cache header at all, browsers applied heuristic caching, and Trello kept
+   * framing a stale bundle: every rebuild appeared to do nothing, which reads as
+   * "the Power-Up ignored my change" rather than "the browser never asked".
+   *
+   * `allowedHosts` - Vite rejects requests whose Host header it does not know, so
+   * a tunnel hostname is refused with "Blocked request" unless it is listed. Set
+   * POWERUP_HOST to your tunnel hostname; without it any host is accepted, which
+   * is acceptable only because this serves a public static bundle with no
+   * secrets and no API of its own.
+   */
+  preview: {
+    port: 4173,
+    strictPort: true,
+    headers: { 'Cache-Control': 'no-store, must-revalidate' },
+    allowedHosts: process.env['POWERUP_HOST'] ? [process.env['POWERUP_HOST']] : true,
+  },
   build: {
     outDir: '../dist',
     emptyOutDir: true,

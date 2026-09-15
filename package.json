@@ -9,7 +9,9 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "host": "bash scripts/host.sh"
   },
   "devDependencies": {
     "fast-check": "^3.23.2",

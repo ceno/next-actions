@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .DS_Store
+
+# Local-only: your ngrok static domain. See .env.local.example
+.env.local

@@ -30,10 +30,11 @@ the localizer, the settings popup (including form-enablement and save) and the P
 See `docs/visibility-2026-09-15.md` for the full run, including the four things that had to be fixed
 to get there.
 
-**This runs on a Cloudflare quick tunnel, whose hostname changes every restart.** When it does, three
-registrations must be updated together or the Power-Up breaks in confusing ways: the iframe connector
-URL, the icon URL, and — separately, under Authorization → Trello Auth — the **allowed origin**, without
-which authorization fails with `Invalid return_url`.
+Hosting is a **fixed ngrok domain** (`npm run host`), so the URL never changes. That matters more
+than it sounds: every hostname change costs three registration edits in Trello — the iframe connector
+URL, the icon URL, and, separately under Authorization → Trello Auth, the **allowed origin**. Miss the
+last and authorization fails with `Invalid return_url`, a message that points at the developer rather
+than at the tunnel. See "Hosting it" below.
 
 Note that a hidden or occluded browser tab cannot verify any of this: Trello defers every Power-Up
 request until the page is visible, and renders card fronts in a name-only "minimal card" mode
@@ -43,10 +44,11 @@ meanwhile.
 
 ```
 npm install
-npm test          # 152 tests: unit, golden, property, i18n, real-payload
+npm test          # 163 tests: unit, golden, property, i18n, real-payload
 npm run typecheck
 npm run build     # -> dist/
 npm run dev       # then open /preview.html — see "Seeing it" below
+npm run host      # build + serve dist/ on the fixed public URL Trello frames
 ```
 
 ## Layout
@@ -109,14 +111,49 @@ The whole lifecycle is: host a page, tell Trello its URL, enable it on a board.
    connector iframe is re-fetched on board load, which is why an aggressive cache TTL on it is fatal:
    you lose the ability to ship a fix.
 
-Because the tunnel URL changes every restart, expect to paste a new connector URL into the admin page
-each session, or use a named tunnel.
+Use a **stable** URL, and the registration becomes a one-time job — see "Hosting it" below.
 
 Three things break a Power-Up silently, so check them on day one:
 
 - any security-header preset that sends `X-Frame-Options: DENY` — your pages are framed by trello.com;
 - a capability wired in code but not ticked in the admin panel;
 - an aggressively cached connector iframe.
+
+## Hosting it
+
+`npm run host` builds `dist/` and serves it on a fixed `*.ngrok-free.app` domain. One-time setup:
+
+1. Sign in at <https://dashboard.ngrok.com> (free).
+2. Copy your authtoken from **Your Authtoken** and run:
+
+   ```
+   ngrok config add-authtoken <token>
+   ```
+
+3. Claim the free static domain under **Domains**. It looks like `nimble-otter-42.ngrok-free.app`.
+4. `cp .env.local.example .env.local` and put the domain in it. `.env.local` is gitignored.
+
+Then register these three in Trello, once, and never again:
+
+| Where | Value |
+|---|---|
+| Iframe connector URL (`trello.com/apps/admin` → Basic information) | `https://<domain>/index.html` |
+| Icon (same page) | `https://<domain>/icon.png` |
+| Allowed origin (**Authorization → Trello Auth**) | `https://<domain>` |
+
+The third is the one that is easy to miss and fails with `Invalid return_url`, because it lives on a
+different page from the other two and is not mentioned where you register the connector.
+
+After that the loop is: `npm run host` in one shell, `npm run build` in another, reload the board.
+The connector is served `no-store`, so the reload always fetches the new bundle — a cached connector
+iframe is one of the three things that break a Power-Up silently, and it costs you the ability to
+ship a fix at all.
+
+Why not a named Cloudflare tunnel: named tunnels need a domain in your own Cloudflare account, and
+`trycloudflare` quick tunnels are random-hostname only, by design. ngrok's free tier includes one
+permanent domain, which is the cheapest way to a URL that survives a restart. Any static host
+(GitHub Pages, Netlify, Vercel) works equally well and needs no process running at all; the tunnel
+only wins because a rebuild is instant.
 
 ## Running the M0b experiments
 
