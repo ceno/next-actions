@@ -51,7 +51,7 @@ There are three levels, and only the third needs Trello at all. Start at the top
 
 ```
 npm run dev
-open http://localhost:5177/preview.html    # whatever port Vite prints
+open http://localhost:5173/preview.html    # or whatever port Vite prints
 ```
 
 Renders the real `computeBadges` against a fixture spread, with every setting, every unresolved
@@ -73,8 +73,8 @@ The whole lifecycle is: host a page, tell Trello its URL, enable it on a board.
 
 1. **Host `dist/` over HTTPS.** Trello loads the connector in an iframe *from the user's browser*, so
    the host must be reachable from the browser, not from Trello's servers. In practice everyone uses
-   a tunnel in development — `cloudflared tunnel --url http://localhost:5177`, `ngrok http 5177`, or
-   `lt --port 5177` — and a static host (GitHub Pages, Netlify, Vercel) for anything shared.
+   a tunnel in development — `cloudflared tunnel --url http://localhost:5173`, `ngrok http 5173`, or
+   `lt --port 5173` — and a static host (GitHub Pages, Netlify, Vercel) for anything shared.
 2. **Register it** at <https://trello.com/apps/admin> → New. You must be an **admin of the workspace**
    you attach it to. The one field that matters is the **iframe connector URL**, which points at
    `index.html` — the page whose only job is to call `TrelloPowerUp.initialize`.
