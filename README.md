@@ -8,14 +8,27 @@ Independently specified from public materials; not a copy of anyone's code.
 - `docs/prior-art.md` — what else exists, and whether this needs building at all.
 - `docs/overnight-report.md` — what the first unsupervised session built, and what it could not.
 - `docs/session-2026-09-15.md` — i18n routed end to end. **Its §1b is wrong; see the M0a report.**
-- `docs/m0a-live-run-2026-09-15.md` — the first live Trello run: registered, enabled, connector never loads.
+- `docs/m0a-live-run-2026-09-15.md` — the first live Trello run. **Its central finding is retracted;
+  see `docs/visibility-2026-09-15.md`.**
+- `docs/visibility-2026-09-15.md` — the connector does mount. It was never fetched because the test
+  tab was hidden, and Trello defers every Power-Up request until the page is visible. Read this
+  before debugging "nothing renders".
 - `docs/reviews/` — three adversarial reviews of the plan, with citations.
 
 ## Status
 
-`computeBadges` is complete and tested. The connector, settings popup and data adapter are written
-but **have never been run against Trello** — that needs M0a (a registered dev Power-Up on an HTTPS
-host) and M0b (six blocking experiments), neither of which can be done without Trello admin access.
+`computeBadges` is complete and tested. **The connector has now run against live Trello**: on
+2026-09-15 it was framed by trello.com on "Personal Assistant", initialized, ran the `card-badges`
+callback and returned a badge (`docs/visibility-2026-09-15.md`).
+
+One step remains before card fronts show checklist content. `CONFIG.dataPath` is `'rest'` (Path B),
+which needs a one-time per-member authorization; until it is granted the badge reads "Connect your
+account". Trello offers the prompt in the Power-Up's own menu on the board — the
+`show-authorization` capability is wired.
+
+Note that a hidden or occluded browser tab cannot verify any of this: Trello defers every Power-Up
+request until the page is visible, and renders card fronts in a name-only "minimal card" mode
+meanwhile.
 
 ## Commands
 
