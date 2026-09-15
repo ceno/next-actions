@@ -104,14 +104,63 @@ export function adaptChecklists(raw: unknown): Checklist[] | Unavailable {
 export const clientSource: ChecklistSource = {
   id: 'client',
   async forCard(t) {
+    let card: Record<string, unknown>;
     try {
-      const card = await t.card('checklists');
-      return adaptChecklists((card as Record<string, unknown>)['checklists']);
+      // Both fields in ONE call. `badges` is not data here - it is the check on
+      // the answer, and a second round-trip could observe a different cache state.
+      card = await t.card('checklists', 'badges');
     } catch (e) {
-      return unavailable(`t.card('checklists') threw: ${String(e)}`);
+      return unavailable(`t.card('checklists', 'badges') threw: ${String(e)}`);
     }
+
+    const adapted = adaptChecklists(card['checklists']);
+    if (isUnavailable(adapted)) return adapted;
+
+    // The stub check, and the reason this path can no longer lie.
+    //
+    // The documented Path A failure does NOT spell itself as a missing
+    // `checkItems` - it spells itself as an EMPTY one. A stubbed checklist is
+    // therefore well-formed, adapts cleanly, and renders `0/0 <name>`: a badge
+    // that looks like a fact and is not one. `badges.checkItems` is the card's
+    // own total and comes from the board-level cache the native badge already
+    // draws from, so it is populated exactly when the checklist cache is not.
+    //
+    // Strictly fewer items than the card claims means we were served a stub.
+    // Equality passes, so a genuinely empty checklist still renders its honest
+    // `0/0`; absent totals disable the check rather than block the path.
+    const totals = badgeTotals(card);
+    if (totals !== null) {
+      const got = countItems(adapted);
+      if (got < totals.total) {
+        return unavailable(
+          `client cache served ${got} of ${totals.total} check items`,
+        );
+      }
+    }
+
+    return adapted;
   },
 };
+
+/** Total check items across every checklist. */
+export function countItems(checklists: readonly Checklist[]): number {
+  return checklists.reduce((n, c) => n + c.items.length, 0);
+}
+
+/**
+ * The card-level check-item totals, when the client library carries them.
+ * `null` means "not offered", never "zero" - the two must not be conflated.
+ */
+export function badgeTotals(card: Record<string, unknown>): { total: number; done: number } | null {
+  const badges = card['badges'];
+  if (typeof badges !== 'object' || badges === null) return null;
+  const b = badges as Record<string, unknown>;
+  if (typeof b['checkItems'] !== 'number') return null;
+  return {
+    total: b['checkItems'],
+    done: typeof b['checkItemsChecked'] === 'number' ? b['checkItemsChecked'] : 0,
+  };
+}
 
 // --- Path C: aggregate counts only -------------------------------------------
 
@@ -132,13 +181,10 @@ export const aggregateSource: ChecklistSource = {
   async forCard(t, cardId) {
     try {
       const card = await t.card('badges');
-      const badges = (card as Record<string, unknown>)['badges'];
-      if (typeof badges !== 'object' || badges === null) return unavailable('no badges field');
-      const b = badges as Record<string, unknown>;
-      if (typeof b['checkItems'] !== 'number') return unavailable('badges.checkItems absent');
+      const totals = badgeTotals(card as Record<string, unknown>);
+      if (totals === null) return unavailable('badges.checkItems absent');
 
-      const total = b['checkItems'];
-      const done = typeof b['checkItemsChecked'] === 'number' ? b['checkItemsChecked'] : 0;
+      const { total, done } = totals;
       const items: CheckItem[] = Array.from({ length: total }, (_, i) => ({
         id: `${cardId}:agg:${i}`,
         name: '',

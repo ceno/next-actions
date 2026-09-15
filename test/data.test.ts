@@ -66,6 +66,89 @@ describe('Path A - client source', () => {
     const t = fakeT({ card: async () => ({ checklists: [{ id: 'c', idCard: 'card1', name: 'L', pos: 1 }] }) });
     expect(isUnavailable(await clientSource.forCard(t, 'card1'))).toBe(true);
   });
+
+  // The 0/0 bug. A stubbed checklist is well-formed and adapts cleanly, so
+  // nothing upstream can tell it from a checklist that is genuinely empty -
+  // except the card's own total, which the native badge is already drawing.
+  it('reports unavailable when the cache serves stubs but the card claims items', async () => {
+    const t = fakeT({
+      card: async () => ({
+        checklists: [{ id: 'c', idCard: 'card1', name: 'Next Actions', pos: 1, checkItems: [] }],
+        badges: { checkItems: 5, checkItemsChecked: 2 },
+      }),
+    });
+    const out = await clientSource.forCard(t, 'card1');
+    expect(isUnavailable(out)).toBe(true);
+    expect((out as { reason: string }).reason).toContain('0 of 5');
+  });
+
+  it('catches a PARTIALLY stubbed card too - some items is still not all of them', async () => {
+    const t = fakeT({
+      card: async () => ({
+        checklists: [
+          { id: 'c1', name: 'A', pos: 1, checkItems: [{ id: 'i1', name: 'x', state: 'complete', pos: 1 }] },
+          { id: 'c2', name: 'B', pos: 2, checkItems: [] },
+        ],
+        badges: { checkItems: 4, checkItemsChecked: 1 },
+      }),
+    });
+    expect(isUnavailable(await clientSource.forCard(t, 'card1'))).toBe(true);
+  });
+
+  // The check must not overreach: an empty checklist is a legitimate thing to
+  // have, and its honest 0/0 is not the bug.
+  it('passes through a genuinely empty checklist, which the card agrees is empty', async () => {
+    const t = fakeT({
+      card: async () => ({
+        checklists: [{ id: 'c', name: 'Nothing in here', pos: 1, checkItems: [] }],
+        badges: { checkItems: 0, checkItemsChecked: 0 },
+      }),
+    });
+    const out = await clientSource.forCard(t, 'card1');
+    expect(isUnavailable(out)).toBe(false);
+    expect(out as unknown[]).toHaveLength(1);
+    expect((out as { items: unknown[] }[])[0]!.items).toHaveLength(0);
+  });
+
+  it('passes through a healthy card untouched', async () => {
+    const t = fakeT({
+      card: async () => ({
+        checklists: [
+          {
+            id: 'c',
+            name: 'Next Actions',
+            pos: 1,
+            checkItems: [
+              { id: 'i1', name: 'a', state: 'complete', pos: 1 },
+              { id: 'i2', name: 'b', state: 'incomplete', pos: 2 },
+            ],
+          },
+        ],
+        badges: { checkItems: 2, checkItemsChecked: 1 },
+      }),
+    });
+    const out = await clientSource.forCard(t, 'card1');
+    expect(isUnavailable(out)).toBe(false);
+    expect((out as { items: unknown[] }[])[0]!.items).toHaveLength(2);
+  });
+
+  // Absent totals must disable the check, not block the path: the cross-check is
+  // a falsifier, and a falsifier that cannot run proves nothing either way.
+  it('still returns data when the card offers no totals to check against', async () => {
+    const t = fakeT({
+      card: async () => ({
+        checklists: [{ id: 'c', name: 'L', pos: 1, checkItems: [] }],
+      }),
+    });
+    expect(isUnavailable(await clientSource.forCard(t, 'card1'))).toBe(false);
+  });
+
+  it('asks for checklists and badges in one call, so both see one cache state', async () => {
+    const card = vi.fn(async () => ({ checklists: [], badges: { checkItems: 0, checkItemsChecked: 0 } }));
+    await clientSource.forCard(fakeT({ card }), 'card1');
+    expect(card).toHaveBeenCalledTimes(1);
+    expect(card).toHaveBeenCalledWith('checklists', 'badges');
+  });
 });
 
 describe('Path C - aggregate source', () => {
