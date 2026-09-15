@@ -54,6 +54,9 @@ export default defineConfig({
         connector: resolve(__dirname, 'public/index.html'),
         settings: resolve(__dirname, 'public/settings.html'),
         authorize: resolve(__dirname, 'public/authorize.html'),
+        // Dev-only. Harmless in dist, and it is the quickest way to look at the
+        // badge output on a machine that has never registered a Power-Up.
+        preview: resolve(__dirname, 'public/preview.html'),
         spike: resolve(__dirname, 'public/spike.html'),
         spikeReport: resolve(__dirname, 'public/spike-report.html'),
       },

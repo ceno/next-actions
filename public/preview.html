@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Next Actions — local preview</title>
+    <!--
+      Deliberately does NOT load power-up.min.js. Nothing here talks to Trello,
+      so the page works with no network, no tunnel and no registration.
+    -->
+    <style>
+      /* Approximations of Trello's surface, NOT its real palette. See the banner. */
+      :root {
+        --bg: #f1f2f4;
+        --panel: #ffffff;
+        --ink: #172b4d;
+        --muted: #626f86;
+        --line: #dfe1e6;
+        --warn-bg: #fff7d6;
+        --warn-line: #f5cd47;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      header { padding: 20px 24px 0; }
+      h1 { font-size: 18px; margin: 0 0 6px; }
+      .banner {
+        background: var(--warn-bg);
+        border: 1px solid var(--warn-line);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 12px 0 0;
+        font-size: 13px;
+        max-width: 900px;
+      }
+      .banner b { display: block; margin-bottom: 4px; }
+      main { display: flex; gap: 24px; align-items: flex-start; padding: 20px 24px 60px; flex-wrap: wrap; }
+      #controls { flex: 0 0 300px; }
+      #board { flex: 1 1 420px; min-width: 320px; }
+      .group {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+      .group h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 2px; color: var(--muted); }
+      .hint { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+      .hint:empty { display: none; }
+      .ctl { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0; font-size: 13px; }
+      .ctl span { flex: 1; }
+      .ctl select, .ctl input[type="number"] { flex: 0 0 130px; }
+      button { font: inherit; padding: 6px 12px; border-radius: 4px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+
+      /* A card front, approximately. */
+      .card {
+        background: var(--panel);
+        border-radius: 8px;
+        box-shadow: 0 1px 1px rgba(9,30,66,.25);
+        padding: 8px 10px 10px;
+        margin-bottom: 10px;
+        max-width: 280px;
+      }
+      .card-title { margin-bottom: 6px; }
+      .badges { display: flex; flex-wrap: wrap; gap: 4px; }
+      .badge {
+        display: inline-block;
+        font-size: 12px;
+        line-height: 16px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: #091e420f;
+        color: var(--ink);
+        max-width: 100%;
+        overflow-wrap: anywhere;
+      }
+      .c-green { background: #baf3db; } .c-orange { background: #fedec8; }
+      .c-red { background: #ffd5d2; }   .c-blue { background: #cce0ff; }
+      .c-yellow { background: #f8e6a0; } .c-purple { background: #dfd8fd; }
+      .c-pink { background: #fdd0ec; }   .c-sky { background: #c6edfb; }
+      .c-lime { background: #d3f1a7; }   .c-light-gray { background: #dcdfe4; }
+      .note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+      #count { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #1d2125; --panel: #22272b; --ink: #b6c2cf; --muted: #9fadbc; --line: #2c333a;
+                --warn-bg: #3b2f1a; --warn-line: #7f6224; }
+        .badge { background: #a1bdd914; color: var(--ink); }
+        .c-green { background: #164b35; } .c-orange { background: #5f3811; }
+        .c-red { background: #5d1f1a; }   .c-blue { background: #09326c; }
+        .c-yellow { background: #533f04; } .c-purple { background: #352c63; }
+        .c-pink { background: #50253f; }   .c-sky { background: #164555; }
+        .c-lime { background: #37471f; }   .c-light-gray { background: #454f59; }
+        button { background: var(--panel); color: var(--ink); }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Next Actions — local preview</h1>
+      <p id="count"></p>
+      <div class="banner">
+        <b>This is not Trello.</b>
+        The card frame and badge pills are an approximation, the colours approximate Trello's named
+        palette rather than matching it, and Trello's own card-front checklist expansion (shipped
+        April 2026) is not drawn here at all. Judge <b style="display:inline">badge count, text
+        length and wording</b> here. Colour fidelity, spacing and collision with native output are
+        E3 and E4, on a real board. The badge logic itself is the real <code>computeBadges</code>.
+      </div>
+    </header>
+    <main>
+      <div id="controls"></div>
+      <div id="board"></div>
+    </main>
+    <script type="module">
+      import { mountPreview } from '../src/preview.ts';
+      mountPreview();
+    </script>
+  </body>
+</html>
