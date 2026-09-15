@@ -23,7 +23,7 @@ npm install
 npm test          # 125 tests: unit, golden, property, i18n
 npm run typecheck
 npm run build     # -> dist/
-npm run dev       # local preview; Trello cannot load localhost
+npm run dev       # then open /preview.html — see "Seeing it" below
 ```
 
 ## Layout
@@ -94,16 +94,6 @@ Three things break a Power-Up silently, so check them on day one:
 - any security-header preset that sends `X-Frame-Options: DENY` — your pages are framed by trello.com;
 - a capability wired in code but not ticked in the admin panel;
 - an aggressively cached connector iframe.
-
-## Hosting
-
-Trello loads the connector in an iframe from an HTTPS URL. **localhost is not supported.** Use a
-tunnel (cloudflared, ngrok) or a preview deploy.
-
-Two things break a Power-Up silently, so check them on day one:
-
-- any security-header preset that sends `X-Frame-Options: DENY` — your pages are framed by trello.com;
-- an aggressively cached connector iframe — you will not be able to ship a fix.
 
 ## Running the M0b experiments
 
