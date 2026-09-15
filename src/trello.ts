@@ -22,6 +22,18 @@ export interface TrelloT {
   sizeTo(target: string | number | HTMLElement): Promise<void>;
   /** iframe capabilities only; re-runs the callback when Trello wants a redraw. */
   render(fn: () => void): void;
+  /**
+   * Localization. Documented as SYNCHRONOUS - `localizeKey` returns the string,
+   * not a Promise, which is what lets `computeBadges` stay pure and sync.
+   *
+   * Optional in OUR typing, deliberately: the client library is unversioned and
+   * unpinnable (SPEC.md 2.9), so every call site must survive these being absent.
+   * See i18n.ts, where every call is guarded.
+   */
+  localizeKey?(key: string, data?: Record<string, unknown>): string;
+  localizeKeys?(keys: (string | [string, Record<string, unknown>])[]): string[];
+  /** Replaces the text of descendants carrying `data-i18n-id`. */
+  localizeNode?(node: Node): void;
   storeSecret(key: string, value: string): Promise<void>;
   loadSecret(key: string): Promise<string | undefined>;
   clearSecret(key: string): Promise<void>;
@@ -36,16 +48,26 @@ export interface TrelloRestApi {
   clearToken(): Promise<void>;
 }
 
+export interface TrelloPowerUpUtil extends Record<string, unknown> {
+  /** Loads the resource bundle for `locale`. Must resolve before the first localizeKey. */
+  initLocalizer?(locale: string, options: { localization: unknown }): Promise<unknown>;
+}
+
 export interface TrelloPowerUpGlobal {
   initialize(capabilities: Record<string, unknown>, options?: Record<string, unknown>): TrelloT;
   iframe(options?: Record<string, unknown>): TrelloT;
-  util: Record<string, unknown>;
+  util: TrelloPowerUpUtil;
 }
 
 declare global {
   // Provided by https://p.trellocdn.com/power-up.min.js, loaded by a <script> tag.
   // Unversioned and always-current: there is no way to pin it (SPEC.md 2.9).
-  const TrelloPowerUp: TrelloPowerUpGlobal;
+  // `var`, not `const`, so that `globalThis.TrelloPowerUp` typechecks - the script
+  // tag may not have run yet, hence the `undefined`.
+  // eslint-disable-next-line no-var
+  var TrelloPowerUp: TrelloPowerUpGlobal | undefined;
+  /** Set by the client library; the locale Trello is rendering the board in. */
+  var locale: string | undefined;
 }
 
 export function powerUp(): TrelloPowerUpGlobal {

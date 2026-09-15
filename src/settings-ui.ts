@@ -9,7 +9,8 @@
  *    card-badges re-run, so we tell the user to refresh the board and mean it.
  */
 
-import { LABELS, LIMIT_CHOICES } from './constants';
+import { LIMIT_CHOICES } from './constants';
+import { initIframeLocalizer, LOCALIZATION } from './i18n';
 import {
   deriveFormState,
   isDirty,
@@ -24,7 +25,10 @@ import type { BadgeColorSetting, Limit, Settings } from './types';
 type Row = { el: HTMLElement; key: keyof FormState };
 
 export async function mountSettings(form: HTMLFormElement): Promise<void> {
-  const t = powerUp().iframe();
+  const t = powerUp().iframe({ localization: LOCALIZATION });
+  // Awaited before the first lookup: in an iframe the bundle is fetched by
+  // initLocalizer, and every localizeKey issued before it resolves is a miss.
+  const L = await initIframeLocalizer(t);
   const saved = await loadSettings(t);
   let current: Settings = { ...saved };
   const rows: Row[] = [];
@@ -84,40 +88,40 @@ export async function mountSettings(form: HTMLFormElement): Promise<void> {
   };
 
   const colorOptions: { value: BadgeColorSetting; label: string }[] = [
-    { value: 'none', label: LABELS.colorNone },
+    { value: 'none', label: L('colorNone') },
     ...BADGE_COLORS.map((c) => ({ value: c as BadgeColorSetting, label: c })),
   ];
   const limitOptions = LIMIT_CHOICES.map((l: Limit) => ({
     value: l as string | number,
-    label: l === 'all' ? LABELS.limitAll : String(l),
+    label: l === 'all' ? L('limitAll') : String(l),
   }));
 
-  section(LABELS.sectionCards);
-  checkbox('showHeaders', LABELS.showHeaders);
-  select('progressFormat', LABELS.progressFormat, [
-    { value: 'fraction', label: LABELS.progressFraction },
-    { value: 'percent', label: LABELS.progressPercent },
+  section(L('sectionCards'));
+  checkbox('showHeaders', L('showHeaders'));
+  select('progressFormat', L('progressFormat'), [
+    { value: 'fraction', label: L('progressFraction') },
+    { value: 'percent', label: L('progressPercent') },
   ]);
-  select('finishedColor', LABELS.finishedColor, colorOptions);
-  select('unfinishedColor', LABELS.unfinishedColor, colorOptions);
-  checkbox('hideCompletedChecklists', LABELS.hideCompletedChecklists);
-  select('checklistLimit', LABELS.checklistLimit, limitOptions);
+  select('finishedColor', L('finishedColor'), colorOptions);
+  select('unfinishedColor', L('unfinishedColor'), colorOptions);
+  checkbox('hideCompletedChecklists', L('hideCompletedChecklists'));
+  select('checklistLimit', L('checklistLimit'), limitOptions);
 
-  section(LABELS.sectionItems);
-  checkbox('showIncompleteItems', LABELS.showIncompleteItems);
-  select('incompleteItemLimit', LABELS.incompleteItemLimit, limitOptions);
-  checkbox('showCompletedItems', LABELS.showCompletedItems);
+  section(L('sectionItems'));
+  checkbox('showIncompleteItems', L('showIncompleteItems'));
+  select('incompleteItemLimit', L('incompleteItemLimit'), limitOptions);
+  checkbox('showCompletedItems', L('showCompletedItems'));
 
   const actions = document.createElement('div');
   actions.className = 'actions';
-  const save = button(LABELS.save, 'mod-primary');
-  const clear = button(LABELS.clear, '');
+  const save = button(L('save'), 'mod-primary');
+  const clear = button(L('clear'), '');
   actions.append(save, clear);
   form.append(actions);
 
   const note = document.createElement('p');
   note.className = 'note';
-  note.textContent = LABELS.savedNeedsRefresh;
+  note.textContent = L('savedNeedsRefresh');
   note.hidden = true;
   form.append(note);
 
@@ -126,7 +130,7 @@ export async function mountSettings(form: HTMLFormElement): Promise<void> {
     await saveSettings(t, current);
     // This is the whole story on refresh, and it is permanent: card-badges
     // cannot be re-run from here, and dynamic badges cannot change badge COUNT.
-    await t.alert({ message: LABELS.savedNeedsRefresh, duration: 6 });
+    await t.alert({ message: L('savedNeedsRefresh'), duration: 6 });
     note.hidden = false;
     await t.closePopup();
   });
@@ -146,7 +150,7 @@ export async function mountSettings(form: HTMLFormElement): Promise<void> {
       const control = r.el.querySelector('input, select') as HTMLInputElement | null;
       if (control) control.disabled = !state[r.key];
     }
-    save.textContent = isDirty(saved, current) ? `${LABELS.save} •` : LABELS.save;
+    save.textContent = isDirty(saved, current) ? `${L('save')} •` : L('save');
   }
 
   async function refresh(): Promise<void> {

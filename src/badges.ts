@@ -17,6 +17,7 @@ import {
   GLYPH_COMPLETE,
   GLYPH_INCOMPLETE,
 } from './constants';
+import { english, type Localize } from './i18n';
 import type {
   Badge,
   BadgeCaps,
@@ -28,11 +29,18 @@ import type {
   Settings,
 } from './types';
 
+/**
+ * `localize` is a plain synchronous function, so passing it keeps this module
+ * pure: same inputs, same output, still no I/O and still no `t`. i18n.ts imports
+ * Trello's types only with `import type`, which erases, so nothing Trello-shaped
+ * reaches this file at runtime.
+ */
 export function computeBadges(
   checklists: readonly Checklist[],
   settings: Settings,
   policy: BadgePolicy = DEFAULT_POLICY,
   caps: BadgeCaps = DEFAULT_CAPS,
+  localize: Localize = english,
 ): Badge[] {
   const ordered = orderChecklists(checklists, policy);
 
@@ -61,7 +69,7 @@ export function computeBadges(
     const visible = visibleIds.has(checklist.id);
 
     if (visible && settings.showHeaders && !suppressHeaders) {
-      badges.push(headerBadge(checklist, settings, policy, caps));
+      badges.push(headerBadge(checklist, settings, policy, caps, localize));
     }
 
     // A2. When a checklist does not gate its items, items from a hidden
@@ -81,7 +89,7 @@ export function computeBadges(
         if (spent >= allowance) continue;
         spent += 1;
       }
-      badges.push(itemBadge(item, caps));
+      badges.push(itemBadge(item, caps, localize));
     }
 
     if (perCard) budget -= spent;
@@ -142,6 +150,7 @@ function headerBadge(
   settings: Settings,
   policy: BadgePolicy,
   caps: BadgeCaps,
+  localize: Localize,
 ): Badge {
   const done = countComplete(checklist);
   const total = checklist.items.length;
@@ -157,21 +166,30 @@ function headerBadge(
     {
       text,
       // The tooltip spells out what the colour encodes. No state may be carried
-      // by colour alone (SPEC.md 3.7).
-      title: `${checklist.name || 'Checklist'} — ${done} of ${total} items finished`,
+      // by colour alone (SPEC.md 3.7). Not truncated: it is the accessible long
+      // form, and a cap is what it exists to escape.
+      title: localize('tooltipChecklist', {
+        name: checklist.name || localize('fallbackChecklistName'),
+        done,
+        total,
+      }),
     },
     color,
   );
 }
 
-function itemBadge(item: CheckItem, caps: BadgeCaps): Badge {
+function itemBadge(item: CheckItem, caps: BadgeCaps, localize: Localize): Badge {
   const glyph = item.complete ? GLYPH_COMPLETE : GLYPH_INCOMPLETE;
   return {
     // Item names render raw - no trimming, no normalisation, no capitalisation -
     // except for the defensive length cap. Only the truncation is ours.
     text: truncate(join(glyph, item.name), caps.maxTextLength),
     // The glyph is not accessible on its own; the tooltip carries the state.
-    title: `${item.name || 'Item'} — ${item.complete ? 'finished' : 'not finished'}`,
+    // Two whole templates rather than one with an interpolated word: a translator
+    // cannot reorder around a fragment they never see.
+    title: localize(item.complete ? 'tooltipItemFinished' : 'tooltipItemUnfinished', {
+      name: item.name || localize('fallbackItemName'),
+    }),
   };
 }
 

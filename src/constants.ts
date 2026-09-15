@@ -66,6 +66,7 @@ export const SETTINGS_KEY = 'nextActions';
  * Wording is deliberately ours - see SPEC.md 5.2.
  */
 export const LABELS = {
+  appName: 'Next Actions',
   sectionCards: 'What appears on cards',
   showHeaders: 'Show checklist name and progress',
   progressFormat: 'Progress as',
@@ -85,4 +86,21 @@ export const LABELS = {
   unauthorized: 'Connect your account',
   colorNone: 'No colour',
   limitAll: 'All',
+
+  // Badge tooltips. These are user-visible and were previously hardcoded inside
+  // `badges.ts`; they live here so the wording firewall (SPEC.md 5.2) and the
+  // localizer both apply to them. `{...}` placeholders match the replacement
+  // syntax Trello's own localizer uses, so one template serves both paths.
+  tooltipChecklist: '{name} — {done} of {total} items finished',
+  tooltipItemFinished: '{name} — finished',
+  tooltipItemUnfinished: '{name} — not finished',
+  /** Used only when a checklist or item has an empty name; a tooltip never starts with a dash. */
+  fallbackChecklistName: 'Checklist',
+  fallbackItemName: 'Item',
+
+  // authorize.html. Path B only.
+  authorizeIntro: "Next Actions needs read access to this board's checklists.",
+  authorizeConnect: 'Connect',
+  authorizeConnected: 'Connected. Refresh the board to see the change.',
+  authorizeFailed: 'Could not connect: {error}',
 } as const;

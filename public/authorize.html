@@ -11,22 +11,21 @@
       Path B only. Needed because checklist items are not reliably available from
       the client library inside card-badges (SPEC.md 6.2). If E1 says otherwise,
       this page and the two authorization capabilities are deleted.
+
+      The copy below is the English fallback, shown before the module runs and
+      whenever the localizer cannot answer. `data-i18n-id` matches the key in
+      public/strings/*.json so Trello's own localizeNode would also find it.
     -->
-    <p id="status">Next Actions needs read access to this board's checklists.</p>
-    <button id="connect" class="mod-primary">Connect</button>
+    <p id="status" data-i18n-id="authorizeIntro">
+      Next Actions needs read access to this board's checklists.
+    </p>
+    <button id="connect" class="mod-primary" data-i18n-id="authorizeConnect">Connect</button>
     <script type="module">
-      const t = TrelloPowerUp.iframe();
-      document.getElementById('connect').addEventListener('click', async () => {
-        try {
-          await t.getRestApi().authorize({ scope: 'read', expiration: 'never' });
-          document.getElementById('status').textContent =
-            'Connected. Refresh the board to see the change.';
-        } catch (e) {
-          document.getElementById('status').textContent = 'Could not connect: ' + e;
-        }
-        await t.sizeTo('body');
+      import { mountAuthorize } from '../src/authorize.ts';
+      mountAuthorize({
+        status: document.getElementById('status'),
+        connect: document.getElementById('connect'),
       });
-      t.render(() => t.sizeTo('body'));
     </script>
   </body>
 </html>
