@@ -1,98 +1,130 @@
 /**
- * The one assertion that is about what a user actually sees.
+ * The card-badges chain, end to end, under the SHIPPED configuration.
  *
- * Everything else in this suite tests a layer. This tests the whole card-badges
- * chain under the shipped diagnostic build (Path A, degrade to Path C) against
- * the failure that was reported on a live board: the client library serves
- * checklist stubs, and the card front reads `0/0`.
+ * Everything else in this suite tests a layer in isolation. This drives
+ * `cardBadges` itself - the real `CONFIG` (Path B, degrade to Path C), the real
+ * settings load, the real adapter, the real `computeBadges` - and asserts the
+ * text that would land on a card front.
  *
- * `0/0` is not a rendering bug. It is `computeBadges` faithfully rendering a
- * checklist that it was told has no items - so the fix has to be upstream, and
- * the thing to assert is that the number on the card is now right.
+ * It exists because the two failures this project has actually hit were both
+ * invisible to the layer tests: a `0/0` badge that every unit test agreed was
+ * correct, and a data path that returned nothing at all. Both are properties of
+ * the whole chain.
+ *
+ * Each test uses its own board and member id: `createRestSource` memoises per
+ * board for 10s and the settings cache memoises per member, so shared ids would
+ * leak one test's answer into the next.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cardBadges } from '../src/connector';
+import { GLYPH_INCOMPLETE } from '../src/constants';
 import type { TrelloT } from '../src/trello';
+import raw from './fixtures/real-card-checklists.json';
 
-/** A card whose client-library checklist cache has been stubbed out. */
-const stubbedCard = (over: Partial<Record<string, unknown>> = {}): TrelloT =>
+/** The real captured payload, shaped as the board-level REST response. */
+const boardPayload = (cardId: string) =>
+  (raw as Record<string, unknown>[]).map((c) => ({ ...c, idCard: cardId }));
+
+interface Opts {
+  authorized?: boolean;
+  badges?: Record<string, unknown> | undefined;
+  board?: string;
+  member?: string;
+  card?: string;
+}
+
+const fakeT = (o: Opts = {}): TrelloT =>
   ({
     card: vi.fn(async (...fields: string[]) => {
-      // Path A asks for both; Path C asks for badges alone. One fake serves both.
       const out: Record<string, unknown> = {};
-      if (fields.includes('checklists')) {
-        // The stub: well-formed, named, and empty.
-        out['checklists'] = [
-          { id: 'c1', idCard: 'card1', name: 'Next Actions', pos: 140737488355328, checkItems: [] },
-        ];
-      }
-      if (fields.includes('badges')) {
-        out['badges'] = { checkItems: 5, checkItemsChecked: 2 };
-      }
+      if (fields.includes('badges') && o.badges !== undefined) out['badges'] = o.badges;
       return out;
     }),
-    getContext: () => ({ board: 'b1', card: 'card1', member: 'm1' }),
+    getContext: () => ({
+      board: o.board ?? 'b-default',
+      card: o.card ?? 'card1',
+      member: o.member ?? 'm-default',
+    }),
     get: async () => undefined,
-    getRestApi: () => ({ isAuthorized: async () => false }),
-    ...over,
+    getRestApi: () => ({
+      isAuthorized: async () => o.authorized ?? false,
+      getToken: async () => 'tok',
+      clearToken: async () => undefined,
+    }),
   }) as unknown as TrelloT;
 
-describe('card-badges, end to end, on the reported failure', () => {
-  it('renders the card\'s real progress instead of a truthful-looking 0/0', async () => {
-    const badges = await cardBadges(stubbedCard());
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
-    expect(badges).toHaveLength(1);
-    expect(badges[0]!.text).toBe('2/5');
-    // The regression, stated as itself.
+describe('card-badges, end to end, on the shipped config', () => {
+  it('puts the next actions on the card front when Path B is authorized', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, status: 200, json: async () => boardPayload('card-ok') })),
+    );
+
+    const badges = await cardBadges(
+      fakeT({ authorized: true, board: 'b-ok', member: 'm-ok', card: 'card-ok' }),
+    );
+
+    // This is the product: the header, then the unfinished items by name.
+    expect(badges.map((b) => b.text)).toEqual([
+      '2/5 Next Actions',
+      `${GLYPH_INCOMPLETE} Book planes`,
+      `${GLYPH_INCOMPLETE} Buy tickets`,
+      `${GLYPH_INCOMPLETE} Book hotels and such`,
+    ]);
+    expect(badges[0]!.color).toBe('orange');
+  });
+
+  it('signs the REST call with the configured key, or the board returns 401', async () => {
+    const fetchMock = vi.fn(async (_url: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => boardPayload('card-key'),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await cardBadges(fakeT({ authorized: true, board: 'b-key', member: 'm-key', card: 'card-key' }));
+
+    const url = String(fetchMock.mock.calls[0]![0]);
+    expect(url).toContain('/boards/b-key/checklists');
+    expect(url).toContain('checkItems=all');
+    // An empty key here is the silent failure that renders an empty board.
+    expect(url).toMatch(/[?&]key=[0-9a-f]{32}(&|$)/);
+  });
+
+  it('falls back to counts only - never to bare checkboxes - when REST is unavailable', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) })));
+
+    const badges = await cardBadges(
+      fakeT({
+        authorized: false,
+        badges: { checkItems: 5, checkItemsChecked: 2 },
+        board: 'b-agg',
+        member: 'm-agg',
+        card: 'card-agg',
+      }),
+    );
+
+    // Path C has the counts and nothing else. Item badges are ON by default, and
+    // the fallback must still refuse to draw its nameless placeholder items.
+    expect(badges.map((b) => b.text)).toEqual(['2/5']);
     expect(badges.map((b) => b.text)).not.toContain('0/0');
-    expect(badges.map((b) => b.text)).not.toContain('0/0 Next Actions');
+    expect(badges.map((b) => b.text)).not.toContain(GLYPH_INCOMPLETE);
   });
 
-  it('renders nothing rather than 0/0 when no source can be trusted', async () => {
-    // Stubs, and no card-level total to fall back to either.
-    const t = stubbedCard({
-      card: vi.fn(async (...fields: string[]) => {
-        const out: Record<string, unknown> = {};
-        if (fields.includes('checklists')) {
-          out['checklists'] = [{ id: 'c1', name: 'Next Actions', pos: 1, checkItems: [] }];
-        }
-        // `badges` present but carrying no counts: nothing is knowable here.
-        if (fields.includes('badges')) out['badges'] = {};
-        return out;
-      }),
-    });
+  it('asks the user to connect when nothing at all is knowable', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) })));
 
-    // No totals means the cross-check cannot run, so Path A's answer stands and
-    // an empty checklist renders its honest 0/0. That is the correct reading of
-    // "the card agrees it is empty" - it just has nothing to agree with.
-    const badges = await cardBadges(t);
-    expect(badges.map((b) => b.text)).toEqual(['0/0 Next Actions']);
-  });
+    const badges = await cardBadges(
+      fakeT({ authorized: false, badges: {}, board: 'b-no', member: 'm-no', card: 'card-no' }),
+    );
 
-  it('leaves a healthy card alone', async () => {
-    const t = stubbedCard({
-      card: vi.fn(async (...fields: string[]) => {
-        const out: Record<string, unknown> = {};
-        if (fields.includes('checklists')) {
-          out['checklists'] = [
-            {
-              id: 'c1',
-              name: 'Next Actions',
-              pos: 1,
-              checkItems: [
-                { id: 'i1', name: 'Book planes', state: 'complete', pos: 1 },
-                { id: 'i2', name: 'Buy tickets', state: 'incomplete', pos: 2 },
-              ],
-            },
-          ];
-        }
-        if (fields.includes('badges')) out['badges'] = { checkItems: 2, checkItemsChecked: 1 };
-        return out;
-      }),
-    });
-
-    const badges = await cardBadges(t);
-    expect(badges.map((b) => b.text)).toEqual(['1/2 Next Actions']);
+    // Not an empty card front: an unauthorized Power-Up that renders nothing is
+    // indistinguishable from a board with no checklists on it.
+    expect(badges.map((b) => b.text)).toEqual(['Connect your account']);
   });
 });

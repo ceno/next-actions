@@ -33,10 +33,18 @@ export const DEFAULT_POLICY: BadgePolicy = {
 };
 
 /**
- * SPEC.md 5.5. `showIncompleteItems` is off by default on purpose: since Trello
- * shipped native card-front checklist expansion (28 Apr 2026), item badges can
- * duplicate and contradict native output. The zero-config state is coloured
- * progress pills, which is the thing native does not do.
+ * SPEC.md 5.5, REVISED 2026-09-15. `showIncompleteItems` now defaults ON.
+ *
+ * It was off because Trello's own card-front checklist expansion (28 Apr 2026)
+ * can duplicate and contradict item badges, which made coloured progress pills
+ * the safe zero-config state. That reasoning was sound and the conclusion was
+ * still wrong: the pills are the thing Trello ALREADY does, so the default
+ * withheld the only output this Power-Up exists to produce. A user who enables
+ * "Next Actions" and sees `2/5` has been shown nothing they did not have.
+ *
+ * The duplication risk is real and is handled where it belongs - the user can
+ * turn items off, and `incompleteItemLimit` keeps one card from flooding the
+ * front. E4 measures the collision with native output on a real board.
  */
 export const DEFAULT_SETTINGS: Settings = {
   v: 1,
@@ -46,7 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   unfinishedColor: 'orange',
   hideCompletedChecklists: false,
   checklistLimit: 'all',
-  showIncompleteItems: false,
+  showIncompleteItems: true,
   incompleteItemLimit: 3,
   showCompletedItems: false,
 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeBadges, formatProgress, truncate } from '../src/badges';
 import { DEFAULT_CAPS, DEFAULT_SETTINGS, GLYPH_COMPLETE, GLYPH_INCOMPLETE } from '../src/constants';
-import { list, policy, settings, texts } from './helpers';
+import { headersOnly, list, policy, settings, texts } from './helpers';
 
 describe('empty and degenerate input', () => {
   it('returns an empty array for a card with no checklists', () => {
@@ -39,7 +39,7 @@ describe('header badges', () => {
   });
 
   it('colours complete green and incomplete orange by default', () => {
-    const out = computeBadges([list('A', 'xx', 1), list('B', 'xo', 2)], DEFAULT_SETTINGS);
+    const out = computeBadges([list('A', 'xx', 1), list('B', 'xo', 2)], headersOnly());
     expect(out.map((b) => b.color)).toEqual(['green', 'orange']);
   });
 
@@ -64,12 +64,12 @@ describe('header badges', () => {
   });
 
   it('suppresses nothing by default on a single-checklist card (observed behaviour)', () => {
-    const out = computeBadges([list('Checklist', 'ooo')], DEFAULT_SETTINGS);
+    const out = computeBadges([list('Checklist', 'ooo')], headersOnly());
     expect(out.length).toBe(1);
   });
 
   it('S1: suppresses the redundant single header when the option is on', () => {
-    const out = computeBadges([list('Checklist', 'ooo')], DEFAULT_SETTINGS, policy({ suppressRedundantSingleHeader: true }));
+    const out = computeBadges([list('Checklist', 'ooo')], headersOnly(), policy({ suppressRedundantSingleHeader: true }));
     expect(out).toEqual([]);
   });
 });
@@ -98,8 +98,20 @@ describe('item badges', () => {
     expect(out.length).toBe(1);
   });
 
-  it('emits no item badges at all by default', () => {
+  // Reversed 2026-09-15. The old default emitted headers only; that withheld
+  // the one thing this Power-Up exists to show, so the zero-config state now
+  // includes the unfinished items. See DEFAULT_SETTINGS.
+  it('emits item badges by default - the item text is the product', () => {
     const out = computeBadges([list('L', 'xoo')], DEFAULT_SETTINGS);
+    expect(texts(out)).toEqual([
+      '1/3 L',
+      `${GLYPH_INCOMPLETE} L item 1`,
+      `${GLYPH_INCOMPLETE} L item 2`,
+    ]);
+  });
+
+  it('emits no item badges once the user turns them off', () => {
+    const out = computeBadges([list('L', 'xoo')], headersOnly());
     expect(out.length).toBe(1);
   });
 });
@@ -124,7 +136,7 @@ describe('limits', () => {
   it('truncates checklists to the first N in order', () => {
     const out = computeBadges(
       [list('A', 'o', 1), list('B', 'o', 2), list('C', 'o', 3)],
-      settings({ checklistLimit: 2 }),
+      headersOnly({ checklistLimit: 2 }),
     );
     expect(texts(out)).toEqual(['0/1 A', '0/1 B']);
   });
@@ -142,12 +154,12 @@ describe('A1 - ordering (UNRESOLVED: these assertions encode the provisional def
   const two = [list('Incomplete', 'o', 1), list('Complete', 'x', 2)];
 
   it('position order: checklist pos wins over completeness', () => {
-    expect(texts(computeBadges(two, DEFAULT_SETTINGS, policy({ ordering: 'position' }))))
+    expect(texts(computeBadges(two, headersOnly(), policy({ ordering: 'position' }))))
       .toEqual(['0/1 Incomplete', '1/1 Complete']);
   });
 
   it('complete-first order: completeness wins over pos', () => {
-    expect(texts(computeBadges(two, DEFAULT_SETTINGS, policy({ ordering: 'complete-first' }))))
+    expect(texts(computeBadges(two, headersOnly(), policy({ ordering: 'complete-first' }))))
       .toEqual(['1/1 Complete', '0/1 Incomplete']);
   });
 
@@ -273,7 +285,16 @@ describe('golden: the "Summer Holiday" card [encodes A1, A2, A3]', () => {
   const card = [list('Place to stay', 'xx', 1), list('Transport', 'xoo', 2)];
 
   it('progress-only configuration', () => {
-    expect(texts(computeBadges(card, DEFAULT_SETTINGS))).toEqual(['2/2 Place to stay', '1/3 Transport']);
+    expect(texts(computeBadges(card, headersOnly()))).toEqual(['2/2 Place to stay', '1/3 Transport']);
+  });
+
+  it('shipped defaults - headers plus the unfinished items beneath each', () => {
+    expect(texts(computeBadges(card, DEFAULT_SETTINGS))).toEqual([
+      '2/2 Place to stay',
+      '1/3 Transport',
+      `${GLYPH_INCOMPLETE} Transport item 1`,
+      `${GLYPH_INCOMPLETE} Transport item 2`,
+    ]);
   });
 
   it('everything shown', () => {

@@ -5,6 +5,18 @@ export function settings(over: Partial<Settings> = {}): Settings {
   return { ...DEFAULT_SETTINGS, ...over };
 }
 
+/**
+ * The shipped defaults with item badges turned off.
+ *
+ * `showIncompleteItems` defaults ON since 2026-09-15 - the item text is the
+ * product. Tests whose subject is the HEADER badge pin items off through this,
+ * so each assertion keeps one subject instead of restating the item output.
+ * A test that says "by default" about ITEMS must use `settings()`, not this.
+ */
+export function headersOnly(over: Partial<Settings> = {}): Settings {
+  return settings({ showIncompleteItems: false, ...over });
+}
+
 export function policy(over: Partial<BadgePolicy> = {}): BadgePolicy {
   return { ...DEFAULT_POLICY, ...over };
 }

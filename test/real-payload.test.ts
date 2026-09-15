@@ -21,6 +21,7 @@ import { computeBadges } from '../src/badges';
 import { adaptChecklists, isUnavailable } from '../src/data';
 import { DEFAULT_SETTINGS } from '../src/constants';
 import raw from './fixtures/real-card-checklists.json';
+import { headersOnly } from './helpers';
 
 describe('a real Trello payload', () => {
   it('adapts without being judged Unavailable', () => {
@@ -55,22 +56,31 @@ describe('a real Trello payload', () => {
    * whether a badge is produced? It does not. The name is interpolated, never
    * matched on - there is no branch anywhere in computeBadges that reads it.
    */
-  it('renders a header badge under the shipped defaults', () => {
+  /**
+   * What this real card actually puts on a card front, with nothing configured.
+   * The header, then the unfinished items up to `incompleteItemLimit` - the 4th
+   * and 5th are deliberately held back so one card cannot flood the front.
+   */
+  it('renders the header and the next actions under the shipped defaults', () => {
     const out = adaptChecklists(raw);
     if (isUnavailable(out)) throw new Error(out.reason);
     const badges = computeBadges(out, DEFAULT_SETTINGS);
-    expect(badges).toHaveLength(1);
-    expect(badges[0]!.text).toBe('2/5 Next Actions');
+    expect(badges.map((b) => b.text)).toEqual([
+      '2/5 Next Actions',
+      '☐ Book planes',
+      '☐ Buy tickets',
+      '☐ Book hotels and such',
+    ]);
     expect(badges[0]!.color).toBe('orange');
     expect(badges[0]!.title).toBe('Next Actions — 2 of 5 items finished');
   });
 
-  it('renders the same badge whatever the checklist is called', () => {
+  it('renders the same header whatever the checklist is called', () => {
     const out = adaptChecklists(raw);
     if (isUnavailable(out)) throw new Error(out.reason);
     for (const name of ['Next Actions', 'ToDo', '', '✅ tasks', 'a'.repeat(200)]) {
       const renamed = out.map((c) => ({ ...c, name }));
-      const badges = computeBadges(renamed, DEFAULT_SETTINGS);
+      const badges = computeBadges(renamed, headersOnly());
       expect(badges).toHaveLength(1);
       expect(badges[0]!.text.startsWith('2/5')).toBe(true);
     }

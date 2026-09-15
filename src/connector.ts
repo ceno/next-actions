@@ -90,7 +90,17 @@ export async function cardBadges(t: TrelloT): Promise<Badge[]> {
     if (CONFIG.degradeToAggregate) {
       const fallback = await aggregateSource.forCard(t, cardId);
       if (!isUnavailable(fallback)) {
-        return computeBadges(fallback, settings, undefined, undefined, L);
+        // Path C carries counts and nothing else: its items are synthetic
+        // placeholders with no names. Honouring the item settings here would
+        // draw a row of bare checkboxes that say nothing, so the aggregate
+        // answers the header badge only - whatever the user asked for.
+        return computeBadges(
+          fallback,
+          { ...settings, showIncompleteItems: false, showCompletedItems: false },
+          undefined,
+          undefined,
+          L,
+        );
       }
     }
     if (CONFIG.showUnauthorizedBadge && CONFIG.dataPath === 'rest') {

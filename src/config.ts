@@ -21,15 +21,26 @@ export interface Config {
 }
 
 export const CONFIG: Config = {
-  // LIVE E1/E7 RUN, 2026-09-15. Not a considered default - a diagnostic.
-  // Path A first because it needs no API key and no authorization, so it is the
-  // only path that can render anything on a first run. Path C behind it so the
-  // two unknowns are separable by eye:
-  //   per-checklist badges with names -> E1 green, Path A works
-  //   one aggregate progress pill     -> E1 red, E7 green
-  //   nothing                          -> both failed; go to Path B
-  dataPath: 'client',
+  // PATH B, 2026-09-15. The diagnostic build that preceded this answered its
+  // question: Path A rendered `2/5` from the Path C fallback on every card,
+  // which is E1 red and E7 green. The client library's checklist cache serves
+  // stubs on this account, exactly as SPEC.md 6.2 predicted.
+  //
+  // Path C cannot be the product. It synthesises ONE nameless checklist of
+  // nameless items from the card's count pair, so it can only ever draw a
+  // progress pill - never a next action. Path B is the only path that carries
+  // checklist names and item text, which is the entire point of this Power-Up.
+  dataPath: 'rest',
+
+  // Kept as the safety net BELOW Path B, not as a way of reaching it: a REST
+  // blip now degrades to a true aggregate pill rather than to a blank card.
   degradeToAggregate: true,
-  restApiKey: '',
+
+  // Public by design - it ships in this bundle and is visible to anyone who
+  // views source. The token is the secret, and it never lives here; the client
+  // library holds it per-member. Generated for "Next Actions (dev)"
+  // (6aa90a579e5dd131338e93aa) on 2026-09-15.
+  restApiKey: 'e93523a47d399cc382f41c7f220137ab',
+
   showUnauthorizedBadge: true,
 };
