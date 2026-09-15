@@ -122,3 +122,50 @@ per-member token via `t.getRestApi().authorize()`. Until that happens the card f
 It was not done here because it is an OAuth grant on the user's own account, and that is theirs to
 approve, not something to click on their behalf. `show-authorization` is wired, so Trello offers the
 prompt in the Power-Up's own menu.
+
+
+---
+
+## Resolved, same day: the product is live on the board
+
+With the tab genuinely visible, the whole thing works. Card fronts on
+"Personal Assistant" now read, for example:
+
+    Go see Hanako-san in NL
+    2/5 Next Actions   ☐ Book planes   ☐ Buy tickets   ☐ Book hotels and such
+
+    Finger wart treatment
+    1/3 Next Actions   ☐ Do it properly   ☐ WF: amazon delivery with that n…
+
+That is Path B: the checklist **name** and the **item text** only exist on the REST path, and
+`incompleteItemLimit: 3` and the 64-character cap are both visibly doing their job.
+
+Four things had to be fixed after the visibility finding, and each was real:
+
+1. **The Power-Up had fallen off the board.** Re-added from Power-Ups → Custom.
+2. **The quick tunnel expired mid-session** (`Unauthorized: Tunnel not found`). Everything kept
+   "working" from browser cache, which is what made it look like a code problem. A new tunnel was
+   started and the connector + icon URLs re-registered.
+3. **`authorize.html` was missing `appKey`/`appName`** — the same defect as 623b8f6, in the iframe
+   surface rather than `initialize`. Clicking Connect reported "To use the API helper, make sure you
+   specify appKey and appName when you call TrelloPowerUp.iframe". Fixed by hoisting the pair into
+   `REST_API_OPTIONS` and spreading it at all three entry points; pinned by
+   `test/rest-api-options.test.ts`.
+4. **`Invalid return_url`** on the OAuth consent screen. Trello keeps a **separate** allowlist for
+   the API key's redirect origins, under Authorization → Trello Auth → Allowed origins. It still had
+   only the dead tunnel. Both origins are now listed.
+
+**Operational note: (2) and (4) recur together every time the quick tunnel restarts.** A new tunnel
+hostname means re-registering the connector URL, the icon URL **and** the allowed origin, or
+authorization breaks with a message that points at the developer rather than at the tunnel. A named
+tunnel or a static host avoids all three.
+
+### One surprise worth recording
+
+After authorizing, only header pills appeared — no item badges — despite `showIncompleteItems`
+defaulting to `true` since fcf13dc. The cause was **stored settings from an earlier session**, saved
+while the old default was off. A default only applies where nothing is stored; a member who used the
+Power-Up before the default changed keeps the old value forever. Fixed by ticking "Show unfinished
+items" in the settings popup, which also confirmed that surface works end to end: localized labels,
+form-enablement greying out the item limit while items are off, the dirty-state dot on Save, and the
+documented board-refresh-to-apply behaviour.

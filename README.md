@@ -17,14 +17,23 @@ Independently specified from public materials; not a copy of anyone's code.
 
 ## Status
 
-`computeBadges` is complete and tested. **The connector has now run against live Trello**: on
-2026-09-15 it was framed by trello.com on "Personal Assistant", initialized, ran the `card-badges`
-callback and returned a badge (`docs/visibility-2026-09-15.md`).
+**Working end to end on a live board as of 2026-09-15.** Path B (REST) is authorized and card
+fronts on "Personal Assistant" show the checklist name, progress and the next unfinished items:
 
-One step remains before card fronts show checklist content. `CONFIG.dataPath` is `'rest'` (Path B),
-which needs a one-time per-member authorization; until it is granted the badge reads "Connect your
-account". Trello offers the prompt in the Power-Up's own menu on the board — the
-`show-authorization` capability is wired.
+```
+Go see Hanako-san in NL
+2/5 Next Actions   [ ] Book planes   [ ] Buy tickets   [ ] Book hotels and such
+```
+
+Verified live: `card-badges`, `show-settings`, `show-authorization` and `authorization-status`, plus
+the localizer, the settings popup (including form-enablement and save) and the Path C fallback.
+See `docs/visibility-2026-09-15.md` for the full run, including the four things that had to be fixed
+to get there.
+
+**This runs on a Cloudflare quick tunnel, whose hostname changes every restart.** When it does, three
+registrations must be updated together or the Power-Up breaks in confusing ways: the iframe connector
+URL, the icon URL, and — separately, under Authorization → Trello Auth — the **allowed origin**, without
+which authorization fails with `Invalid return_url`.
 
 Note that a hidden or occluded browser tab cannot verify any of this: Trello defers every Power-Up
 request until the page is visible, and renders card fronts in a name-only "minimal card" mode
@@ -34,7 +43,7 @@ meanwhile.
 
 ```
 npm install
-npm test          # 131 tests: unit, golden, property, i18n, real-payload
+npm test          # 152 tests: unit, golden, property, i18n, real-payload
 npm run typecheck
 npm run build     # -> dist/
 npm run dev       # then open /preview.html — see "Seeing it" below
