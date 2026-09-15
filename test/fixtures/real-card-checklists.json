@@ -1,0 +1,39 @@
+[
+  {
+    "id": "6a95b649ea121e0d6bea1175",
+    "name": "Next Actions",
+    "pos": 140737488355328,
+    "checkItems": [
+      {
+        "id": "6a95b64d8d9c473c4fb7f578",
+        "name": "WF: feedback from a colleague",
+        "state": "complete",
+        "pos": 140737488355328
+      },
+      {
+        "id": "6a95b64f068a63e8fada593f",
+        "name": "Invite a friend",
+        "state": "complete",
+        "pos": 140737488371712
+      },
+      {
+        "id": "6a95b654551566e89fd3dc0d",
+        "name": "Book planes",
+        "state": "incomplete",
+        "pos": 140737488388096
+      },
+      {
+        "id": "6a95b65894ce7844acbe1fa8",
+        "name": "Buy tickets",
+        "state": "incomplete",
+        "pos": 140737488404480
+      },
+      {
+        "id": "6a95b65b28d35dfd11624515",
+        "name": "Book hotels and such",
+        "state": "incomplete",
+        "pos": 140737488420864
+      }
+    ]
+  }
+]

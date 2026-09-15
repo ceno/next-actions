@@ -21,7 +21,7 @@ host) and M0b (six blocking experiments), neither of which can be done without T
 
 ```
 npm install
-npm test          # 125 tests: unit, golden, property, i18n
+npm test          # 131 tests: unit, golden, property, i18n, real-payload
 npm run typecheck
 npm run build     # -> dist/
 npm run dev       # then open /preview.html — see "Seeing it" below
