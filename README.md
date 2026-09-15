@@ -43,6 +43,58 @@ src/i18n.ts               localizer, with LABELS as the permanent English fallba
 public/strings/en.json    the bundle Trello fetches; kept in step with LABELS by a test
 ```
 
+## Seeing it
+
+There are three levels, and only the third needs Trello at all. Start at the top.
+
+**1. The preview — no Trello, no account, no network.**
+
+```
+npm run dev
+open http://localhost:5177/preview.html    # whatever port Vite prints
+```
+
+Renders the real `computeBadges` against a fixture spread, with every setting, every unresolved
+policy option and both caps on a live control. This is where you decide `showIncompleteItems`: the
+shipped default is 9 badges across the 5 fixture cards, and flipping it is 19. It is **not** Trello —
+the pills are our approximation and native card-front expansion is not drawn — so judge badge count,
+text length and wording here, and nothing else.
+
+**2. The popup and connector, standalone.** `settings.html` and `authorize.html` will load at
+`localhost` but Trello's client library only completes its handshake inside a Trello iframe, so
+`t.sizeTo` and storage are inert. Useful for layout, not for behaviour.
+
+**3. The real thing — a registered Power-Up.** See below.
+
+## The Power-Up development lifecycle
+
+A Power-Up is **not** installed, packaged, or uploaded. It is a static HTTPS page that Trello frames.
+The whole lifecycle is: host a page, tell Trello its URL, enable it on a board.
+
+1. **Host `dist/` over HTTPS.** Trello loads the connector in an iframe *from the user's browser*, so
+   the host must be reachable from the browser, not from Trello's servers. In practice everyone uses
+   a tunnel in development — `cloudflared tunnel --url http://localhost:5177`, `ngrok http 5177`, or
+   `lt --port 5177` — and a static host (GitHub Pages, Netlify, Vercel) for anything shared.
+2. **Register it** at <https://trello.com/apps/admin> → New. You must be an **admin of the workspace**
+   you attach it to. The one field that matters is the **iframe connector URL**, which points at
+   `index.html` — the page whose only job is to call `TrelloPowerUp.initialize`.
+3. **Declare capabilities in the admin UI** as well as in code. `initialize()` in `src/connector.ts`
+   wires the callbacks, but a capability Trello has not been told about in the admin panel is never
+   called. This is the single most common reason a correct Power-Up does nothing.
+4. **Enable it on a board** from the board's Power-Ups menu. It appears under Custom.
+5. **Iterate.** Edit, save, and reload the board — there is no publish step and no version bump. The
+   connector iframe is re-fetched on board load, which is why an aggressive cache TTL on it is fatal:
+   you lose the ability to ship a fix.
+
+Because the tunnel URL changes every restart, expect to paste a new connector URL into the admin page
+each session, or use a named tunnel.
+
+Three things break a Power-Up silently, so check them on day one:
+
+- any security-header preset that sends `X-Frame-Options: DENY` — your pages are framed by trello.com;
+- a capability wired in code but not ticked in the admin panel;
+- an aggressively cached connector iframe.
+
 ## Hosting
 
 Trello loads the connector in an iframe from an HTTPS URL. **localhost is not supported.** Use a
