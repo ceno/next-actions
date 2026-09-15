@@ -27,9 +27,9 @@ NGROK_DOMAIN is not set.
   2. Copy your authtoken from Your Authtoken, then run:
          ngrok config add-authtoken <token>
   3. Claim your free static domain under Domains. It looks like
-         something-something.ngrok-free.app
+         something.ngrok-free.dev
   4. Put it in .env.local:
-         NGROK_DOMAIN=something-something.ngrok-free.app
+         NGROK_DOMAIN=something.ngrok-free.dev
 
 Then run `npm run host` again.
 EOF
@@ -74,6 +74,15 @@ cat <<EOF
   All three are registered already and do not change. Rebuild with
   \`npm run build\` in another shell; the next board load picks it up.
 
+  FIRST RUN IN A BROWSER PROFILE: open
+      https://$NGROK_DOMAIN/index.html
+  and click "Visit Site" once. ngrok's free plan serves a warning page to
+  browsers, and Trello's iframe gets it instead of the connector - so the card
+  fronts render nothing, with no error. Clicking through sets a cookie that the
+  iframe then sends too. curl never sees the warning, so the host looks healthy
+  from the terminal while Trello shows nothing. See README, "Hosting it".
+
 EOF
 
-exec ngrok http 4173 --domain "$NGROK_DOMAIN" --log stdout
+# --url, not the deprecated --domain. Takes the full origin, not a bare hostname.
+exec ngrok http 4173 --url "https://$NGROK_DOMAIN" --log stdout

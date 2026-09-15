@@ -121,7 +121,7 @@ Three things break a Power-Up silently, so check them on day one:
 
 ## Hosting it
 
-`npm run host` builds `dist/` and serves it on a fixed `*.ngrok-free.app` domain. One-time setup:
+`npm run host` builds `dist/` and serves it on a fixed `*.ngrok-free.dev` domain. One-time setup:
 
 1. Sign in at <https://dashboard.ngrok.com> (free).
 2. Copy your authtoken from **Your Authtoken** and run:
@@ -130,7 +130,8 @@ Three things break a Power-Up silently, so check them on day one:
    ngrok config add-authtoken <token>
    ```
 
-3. Claim the free static domain under **Domains**. It looks like `nimble-otter-42.ngrok-free.app`.
+3. Take the free domain under **Domains**. Every account gets one automatically, named for you —
+   something like `rural-image-manager.ngrok-free.dev`. Note the suffix is `.dev`, not `.app`.
 4. `cp .env.local.example .env.local` and put the domain in it. `.env.local` is gitignored.
 
 Then register these three in Trello, once, and never again:
@@ -143,6 +144,32 @@ Then register these three in Trello, once, and never again:
 
 The third is the one that is easy to miss and fails with `Invalid return_url`, because it lives on a
 different page from the other two and is not mentioned where you register the connector.
+
+### The ngrok free interstitial — read this before concluding the Power-Up is broken
+
+On the free plan ngrok serves an **"You are about to visit..." warning page** to browser requests
+instead of your site. Trello's connector iframe is a browser request, so it gets that page rather
+than the connector, and the card fronts render nothing — with no error anywhere.
+
+`curl` does *not* see it (it is triggered by the browser `User-Agent`), so the host looks perfectly
+healthy from the terminal. That combination — fine over curl, dead in Trello — is the signature.
+
+The fix is to visit `https://<domain>/index.html` **once** in the browser and click *Visit Site*.
+That sets an `abuse_interstitial` cookie, which is then sent with Trello's iframe request too, and
+everything works. Verified.
+
+Its limits, honestly:
+
+- **per browser, per profile.** Anyone else opening the board sees no badges until they do the same.
+- **the cookie can expire**, and the symptom on expiry is the Power-Up silently going blank again.
+- it relies on a **third-party cookie** reaching the iframe, which Chrome is progressively
+  restricting. If it stops working, this is the first thing to suspect.
+- `--request-header-add ngrok-skip-browser-warning: 1` does **not** work around it; the edge decides
+  before traffic policy applies. Tested.
+
+For anything beyond one developer's own board, use a host with no interstitial: Cloudflare Pages or
+Netlify both give a permanent `*.pages.dev` / `*.netlify.app` URL, deploy `dist/` straight from the
+CLI with no public repo, and cost nothing.
 
 After that the loop is: `npm run host` in one shell, `npm run build` in another, reload the board.
 The connector is served `no-store`, so the reload always fetches the new bundle — a cached connector
