@@ -1,3 +1,4 @@
+import { LABELS } from './constants';
 import type { DataPathId } from './data';
 
 /**
@@ -60,3 +61,24 @@ export const CONFIG: Config = {
   // Off. See the field's doc comment before ever turning this on.
   debugBadges: false,
 };
+
+/**
+ * The options that must be passed to BOTH `TrelloPowerUp.initialize` and every
+ * `TrelloPowerUp.iframe` call, because `t.getRestApi()` does not exist without
+ * them - it throws SYNCHRONOUSLY.
+ *
+ * Exported as one object rather than spelled out per call site, because this has
+ * now been got wrong twice in two different places. `initialize` was missing it
+ * (623b8f6), which took the whole Power-Up down; then `authorize.html` was still
+ * missing it, so the Connect button reported
+ *
+ *   "To use the API helper, make sure you specify appKey and appName when you
+ *    call TrelloPowerUp.iframe"
+ *
+ * and authorization could not be completed at all. A popup that renders and then
+ * refuses on click looks like our bug, and it was.
+ */
+export const REST_API_OPTIONS = {
+  appKey: CONFIG.restApiKey,
+  appName: LABELS.appName,
+} as const;

@@ -9,6 +9,7 @@
  * runs; everything here overwrites it with the localized string.
  */
 
+import { REST_API_OPTIONS } from './config';
 import { initIframeLocalizer, LOCALIZATION, type Localize } from './i18n';
 import { powerUp, type TrelloT } from './trello';
 
@@ -47,7 +48,7 @@ export function wireAuthorize(nodes: AuthorizeNodes, t: TrelloT, L: Localize): v
 }
 
 export async function mountAuthorize(nodes: AuthorizeNodes): Promise<void> {
-  const t = powerUp().iframe({ localization: LOCALIZATION });
+  const t = powerUp().iframe({ localization: LOCALIZATION, ...REST_API_OPTIONS });
   const L = await initIframeLocalizer(t);
   wireAuthorize(nodes, t, L);
 }

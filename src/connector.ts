@@ -7,7 +7,7 @@
  */
 
 import { computeBadges } from './badges';
-import { CONFIG } from './config';
+import { CONFIG, REST_API_OPTIONS } from './config';
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from './constants';
 import {
   aggregateSource,
@@ -200,8 +200,7 @@ export function initialize(): void {
       //
       // Not optional, not a nicety, and documented nowhere near the capability
       // that needs it.
-      appKey: CONFIG.restApiKey,
-      appName: 'Next Actions',
+      ...REST_API_OPTIONS,
     },
   );
 }

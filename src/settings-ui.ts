@@ -10,6 +10,7 @@
  */
 
 import { LIMIT_CHOICES } from './constants';
+import { REST_API_OPTIONS } from './config';
 import { initIframeLocalizer, LOCALIZATION } from './i18n';
 import {
   deriveFormState,
@@ -25,7 +26,7 @@ import type { BadgeColorSetting, Limit, Settings } from './types';
 type Row = { el: HTMLElement; key: keyof FormState };
 
 export async function mountSettings(form: HTMLFormElement): Promise<void> {
-  const t = powerUp().iframe({ localization: LOCALIZATION });
+  const t = powerUp().iframe({ localization: LOCALIZATION, ...REST_API_OPTIONS });
   // Awaited before the first lookup: in an iframe the bundle is fetched by
   // initLocalizer, and every localizeKey issued before it resolves is a miss.
   const L = await initIframeLocalizer(t);
