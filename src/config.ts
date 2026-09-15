@@ -21,8 +21,15 @@ export interface Config {
 }
 
 export const CONFIG: Config = {
-  dataPath: 'rest',
-  degradeToAggregate: false,
+  // LIVE E1/E7 RUN, 2026-09-15. Not a considered default - a diagnostic.
+  // Path A first because it needs no API key and no authorization, so it is the
+  // only path that can render anything on a first run. Path C behind it so the
+  // two unknowns are separable by eye:
+  //   per-checklist badges with names -> E1 green, Path A works
+  //   one aggregate progress pill     -> E1 red, E7 green
+  //   nothing                          -> both failed; go to Path B
+  dataPath: 'client',
+  degradeToAggregate: true,
   restApiKey: '',
   showUnauthorizedBadge: true,
 };

@@ -7,7 +7,8 @@ Independently specified from public materials; not a copy of anyone's code.
 - `SPEC.md` — the frozen specification. Every assertion tagged Observed / Inferred / Decided / Unresolved.
 - `docs/prior-art.md` — what else exists, and whether this needs building at all.
 - `docs/overnight-report.md` — what the first unsupervised session built, and what it could not.
-- `docs/session-2026-09-15.md` — i18n routed end to end; why the real-payload fixture cannot be got over MCP.
+- `docs/session-2026-09-15.md` — i18n routed end to end. **Its §1b is wrong; see the M0a report.**
+- `docs/m0a-live-run-2026-09-15.md` — the first live Trello run: registered, enabled, connector never loads.
 - `docs/reviews/` — three adversarial reviews of the plan, with citations.
 
 ## Status
@@ -97,10 +98,11 @@ Three things break a Power-Up silently, so check them on day one:
 
 ## Running the M0b experiments
 
-0. **Make a board that has checklists on it.** None of the account's current boards has a single one
-   (120 cards sampled, zero checklists), so there is nothing for E1–E7 to observe. Give it a spread:
-   an empty checklist, one all-complete, one partial, two sharing a `pos`, an unnamed item, and one
-   very long item name. Then leave it alone — see step 3.
+0. **Use a board that has checklists on it.** Most cards on "Personal Assistant" do — Trello's own
+   `☑ n/m` badge is on nearly every one. (An earlier note here claimed the account had no checklists
+   at all; that was wrong, and `docs/m0a-live-run-2026-09-15.md` explains why.) Ideally build a board
+   with a deliberate spread: an empty checklist, one all-complete, one partial, two sharing a `pos`,
+   and one very long item name. Then leave it alone — see step 3.
 1. Build and host `dist/`.
 2. Register a **second** Power-Up at `trello.com/apps/admin` pointing at `…/spike.html`, with the
    `card-badges` and `board-buttons` capabilities.
