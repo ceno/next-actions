@@ -170,23 +170,26 @@ Then register these three in Trello, once, and never again:
 The third is the one that is easy to miss and fails with `Invalid return_url`, because it lives on a
 different page from the other two and is not mentioned where you register the connector.
 
-### Both registrations share one API key
+### Each registration ships its own API key
 
-`CONFIG.restApiKey` is a single hardcoded value, so **both** Power-Ups authorize against the app that
-owns that key — the dev one. The consequence is not obvious: the allowed-origin list that matters is
-always the dev app's, whichever registration Trello is framing. Both origins therefore live under
-**Next Actions (dev) → Authorization → Trello Auth**:
+The key is not just an access credential: **Trello's authorize dialog names the app that owns the
+key**, and ignores the `appName` the client library passes next to it. Build the Pages connector with
+the dev key and the production board asks you to authorize "Next Actions (dev)" — the right
+permission requested by visibly the wrong app.
 
-```
-https://rural-image-manager.ngrok-free.dev
-https://ceno.github.io
-```
+So the key is build-time configuration, not a constant. `src/config.ts` defaults to the dev key,
+because `npm run host` takes no build arguments; `.github/workflows/deploy.yml` sets
+`VITE_TRELLO_APP_KEY` to the prod one. An unconfigured build is a developer build.
 
-Adding a third host means adding it *there*, not under the registration that serves it. (Giving prod
-its own key would mean making the key build-time configuration rather than a constant — worth doing
-if the two ever need to be revoked independently.)
+| | App id | Key set by | Allowed origin |
+|---|---|---|---|
+| dev | `6aa90a579e5dd131338e93aa` | the default in `config.ts` | `https://<ngrok-domain>` |
+| prod | `6aaa4fa726a2036747a62057` | the workflow's `VITE_TRELLO_APP_KEY` | `https://ceno.github.io` |
 
-Authorization is per-registration even so: the REST token is stored against the Power-Up's plugin id,
+Each origin lives under **its own** app's Authorization → Trello Auth — a new host goes with the key
+that will serve it, not with whichever app you happen to have open.
+
+Authorization is per-registration too: the REST token is stored against the Power-Up's plugin id,
 so enabling prod on a board it has never been authorized on lands in the degraded state below until
 you authorize it once via the board's Power-Ups menu → **Next Actions** → **Authorize account**.
 

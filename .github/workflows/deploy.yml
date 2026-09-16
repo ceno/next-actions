@@ -43,7 +43,13 @@ jobs:
       # and a dead connector on a board costs far more than 20s of CI.
       - run: npm test
 
+      # The PROD registration's key (6aaa4fa726a2036747a62057). Not a secret -
+      # it ships in the bundle and is readable in source - but it must be set
+      # here, because the default in src/config.ts is the dev app's, and Trello's
+      # authorize dialog names the app that owns whichever key it is given.
       - run: npm run build
+        env:
+          VITE_TRELLO_APP_KEY: 381d17deab522a8b98efc82dc986824c
 
       - uses: actions/configure-pages@v5
 
