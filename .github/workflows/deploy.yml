@@ -1,0 +1,62 @@
+# Builds the connector and publishes dist/ to GitHub Pages.
+#
+# The Power-Up is a static bundle with no backend, so "deploy" is nothing more
+# than putting dist/ on a stable https origin. The origin has to be stable
+# because three Trello registrations point at it (connector URL, icon URL, and
+# the allowed origin under Authorization -> Trello Auth); see README, "Hosting it".
+#
+# dist/ is gitignored, so it is built here rather than committed.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # So a failed deploy can be re-run without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race to publish. Queue rather than cancel: an in-flight
+# deploy that loses to a newer one can publish out of order.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # `npm run build` runs `tsc --noEmit` first, so a type error fails the
+      # deploy rather than shipping. The tests are cheap and need no browser,
+      # and a dead connector on a board costs far more than 20s of CI.
+      - run: npm test
+
+      - run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
