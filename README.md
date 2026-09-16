@@ -121,6 +121,31 @@ Three things break a Power-Up silently, so check them on day one:
 
 ## Hosting it
 
+There are two registrations, and they differ only in where the connector is served from. Neither
+needs the other, and both can be enabled at once on different boards.
+
+| | Prod — **Next Actions** | Dev — **Next Actions (dev)** |
+|---|---|---|
+| Connector | `https://ceno.github.io/next-actions/index.html` | `https://<ngrok-domain>/index.html` |
+| Served by | GitHub Pages, from `main` | `npm run host`, from your laptop |
+| Enabled on | Personal Assistant | Testing sandbox |
+| Ships a change | push to `main`; the Action rebuilds | `npm run build`, reload the board |
+
+Prod is the one to leave alone. Dev is the one to point at whatever you are currently breaking.
+
+### Prod: GitHub Pages
+
+`.github/workflows/deploy.yml` builds `dist/` and publishes it on every push to `main`. There is
+nothing to run by hand. Two properties of Pages matter here:
+
+- it sends `Cache-Control: max-age=600` on HTML and will not let you override it, so a change can
+  take up to ten minutes to reach a board. Asset filenames are hashed, so a stale `index.html` only
+  ever means briefly-old code — never a broken mix of old and new;
+- it sends no `X-Frame-Options`, so trello.com can frame it. This is the header that silently kills
+  a Power-Up, and it is worth re-checking if you ever move hosts.
+
+### Dev: the ngrok tunnel
+
 `npm run host` builds `dist/` and serves it on a fixed `*.ngrok-free.dev` domain. One-time setup:
 
 1. Sign in at <https://dashboard.ngrok.com> (free).
@@ -144,6 +169,34 @@ Then register these three in Trello, once, and never again:
 
 The third is the one that is easy to miss and fails with `Invalid return_url`, because it lives on a
 different page from the other two and is not mentioned where you register the connector.
+
+### Both registrations share one API key
+
+`CONFIG.restApiKey` is a single hardcoded value, so **both** Power-Ups authorize against the app that
+owns that key — the dev one. The consequence is not obvious: the allowed-origin list that matters is
+always the dev app's, whichever registration Trello is framing. Both origins therefore live under
+**Next Actions (dev) → Authorization → Trello Auth**:
+
+```
+https://rural-image-manager.ngrok-free.dev
+https://ceno.github.io
+```
+
+Adding a third host means adding it *there*, not under the registration that serves it. (Giving prod
+its own key would mean making the key build-time configuration rather than a constant — worth doing
+if the two ever need to be revoked independently.)
+
+Authorization is per-registration even so: the REST token is stored against the Power-Up's plugin id,
+so enabling prod on a board it has never been authorized on lands in the degraded state below until
+you authorize it once via the board's Power-Ups menu → **Next Actions** → **Authorize account**.
+
+### The degraded state looks like success
+
+If Path B has no token, `cardBadges` falls through to the Path C aggregate *before* it reaches the
+unauthorized badge (`src/connector.ts:130` precedes `:154`), and the aggregate forces the item
+settings off. An unauthorized board therefore renders a progress pill per card, no item text, and no
+"Connect your account" prompt — which reads as "the Power-Up works but has nothing to say" rather
+than "it is not authorized". Progress pills but never any next-action text is the tell.
 
 ### The ngrok free interstitial — read this before concluding the Power-Up is broken
 
