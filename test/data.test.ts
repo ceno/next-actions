@@ -196,18 +196,117 @@ describe('Path B - REST source', () => {
     expect(fetchBoard).toHaveBeenCalledTimes(1);
   });
 
-  it('serves from cache within the TTL and refetches after it', async () => {
+  it('serves a card it has not drawn yet from cache within the TTL, and refetches after it', async () => {
     const fetchBoard = vi.fn(async () => board);
     let clock = 0;
     const src = createRestSource({ ttlMs: 10_000, now: () => clock, fetchBoard });
     const t = fakeT();
     await src.forCard(t, 'card1');
     clock = 9_999;
-    await src.forCard(t, 'card1');
+    await src.forCard(t, 'card2');
     expect(fetchBoard).toHaveBeenCalledTimes(1);
     clock = 10_001;
-    await src.forCard(t, 'card1');
+    await src.forCard(t, 'card3');
     expect(fetchBoard).toHaveBeenCalledTimes(2);
+  });
+
+  // The reported bug. Add an item, drag it above the current next action, and
+  // the card front kept the old next action. The add made Trello redraw the
+  // card, which fetched a snapshot with the new item at the BOTTOM; the drag
+  // made Trello redraw it again a few seconds later, inside the TTL, and that
+  // second call was answered from the same snapshot. Nothing asks again until
+  // the card next changes, so the stale answer stuck.
+  it('refetches when Trello asks for a card it has already drawn - that ask means the card changed', async () => {
+    const item = (id: string, pos: number) => ({ id, name: id, state: 'incomplete', pos });
+    let current = [{ id: 'l1', idCard: 'card1', name: 'A', pos: 1, checkItems: [item('old', 1), item('new', 2)] }];
+    const fetchBoard = vi.fn(async () => current);
+    const src = createRestSource({ ttlMs: 10_000, now: () => 0, fetchBoard });
+    const first = (r: Awaited<ReturnType<typeof src.forCard>>) =>
+      isUnavailable(r) ? null : [...r[0]!.items].sort((a, b) => a.pos - b.pos)[0]!.name;
+
+    expect(first(await src.forCard(fakeT(), 'card1'))).toBe('old');
+
+    // The drag: 'new' now sits above 'old'.
+    current = [{ id: 'l1', idCard: 'card1', name: 'A', pos: 1, checkItems: [item('old', 1), item('new', 0.5)] }];
+
+    expect(first(await src.forCard(fakeT(), 'card1'))).toBe('new');
+    expect(fetchBoard).toHaveBeenCalledTimes(2);
+  });
+
+  it('refetches for a second edited card even when a first edit already refreshed the snapshot', async () => {
+    // Edit card1, then card2 a few seconds later. Card2's redraw must not be
+    // answered from the snapshot card1's edit fetched: that request went out
+    // before card2 changed.
+    const fetchBoard = vi.fn(async () => board);
+    const src = createRestSource({ ttlMs: 10_000, now: () => 0, fetchBoard });
+    const t = fakeT();
+    await Promise.all([src.forCard(t, 'card1'), src.forCard(t, 'card2')]);
+    await src.forCard(t, 'card1');
+    await src.forCard(t, 'card2');
+    expect(fetchBoard).toHaveBeenCalledTimes(3);
+  });
+
+  it('a redraw while a request is in flight queues ONE follow-up, sent after it, that every redraw shares', async () => {
+    // A burst of redraws - Trello re-rendering the whole board - must cost a
+    // bounded number of requests, not one per card. And the follow-up must go
+    // out AFTER the in-flight one, because that one may predate the change.
+    const releases: (() => void)[] = [];
+    const fetchBoard = vi.fn(
+      () => new Promise<unknown>((resolve) => releases.push(() => resolve(board))),
+    );
+    const src = createRestSource({ ttlMs: 10_000, now: () => 0, fetchBoard });
+    const t = fakeT();
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+
+    const load = src.forCard(t, 'card1');
+    await settle();
+    releases.shift()!();
+    await load;
+
+    const redraws = [src.forCard(t, 'card1')];
+    await settle();
+    expect(fetchBoard).toHaveBeenCalledTimes(2); // the first redraw went straight out
+    redraws.push(...Array.from({ length: 20 }, () => src.forCard(t, 'card1')));
+    await settle();
+    expect(fetchBoard).toHaveBeenCalledTimes(2); // the rest wait behind it, unsent
+
+    releases.shift()!();
+    await settle();
+    expect(fetchBoard).toHaveBeenCalledTimes(3); // ...then go out together, once
+    releases.shift()!();
+    await Promise.all(redraws);
+    expect(fetchBoard).toHaveBeenCalledTimes(3);
+  });
+
+  it('a queued follow-up still goes out when the request ahead of it fails', async () => {
+    let calls = 0;
+    const releases: (() => void)[] = [];
+    const fetchBoard = vi.fn(
+      () =>
+        new Promise<unknown>((resolve, reject) => {
+          calls += 1;
+          const n = calls;
+          releases.push(() => (n === 2 ? reject(new Error('REST 503')) : resolve(board)));
+        }),
+    );
+    const src = createRestSource({ ttlMs: 10_000, now: () => 0, fetchBoard });
+    const t = fakeT();
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+
+    const load = src.forCard(t, 'card1');
+    await settle();
+    releases.shift()!();
+    await load;
+
+    const failing = src.forCard(t, 'card1');
+    await settle();
+    const queued = src.forCard(t, 'card1');
+    releases.shift()!();
+    expect(isUnavailable(await failing)).toBe(true);
+    await settle();
+    releases.shift()!();
+    expect(isUnavailable(await queued)).toBe(false);
+    expect(fetchBoard).toHaveBeenCalledTimes(3);
   });
 
   it('does not cache a failure - one blip must not blank the board for a full TTL', async () => {

@@ -223,6 +223,14 @@ export function boardChecklistsUrl(boardId: string, token: string, key: string):
 interface CacheEntry {
   /** The in-flight or settled promise. Held so concurrent badge calls share one request. */
   promise: Promise<Map<string, Checklist[]>>;
+  /**
+   * False while the entry is queued behind an in-flight request. An unsent
+   * snapshot will reflect anything that happened before it goes out, so ANY
+   * caller may join it - including one whose card has just changed.
+   */
+  sent: boolean;
+  settled: boolean;
+  /** Counted from when the request went out, not from when it was queued. */
   expiresAt: number;
 }
 
@@ -231,12 +239,28 @@ interface CacheEntry {
  * returns every checklist on the board keyed by card, so 500 cards cost one HTTP
  * request. Memoised with a short TTL and single-flight promise dedupe, because
  * Trello fires the badge handler for every visible card at once.
+ *
+ * The TTL only governs cards this source has not drawn yet. A SECOND call for a
+ * card is Trello redrawing it, and Trello redraws a card because it changed - so
+ * that call must be answered by a request sent after it arrived, never from the
+ * snapshot it was last drawn from. Serving it from cache was a real bug: add an
+ * item, drag it above the next action within 10s, and the drag's redraw got the
+ * add's snapshot. Trello does not ask again until the card next changes, so the
+ * stale next action stuck.
+ *
+ * A redraw that lands while a request is in flight cannot use it (it may
+ * predate the change) and does not start a parallel one either: it queues ONE
+ * follow-up behind it, which every redraw until it goes out shares. A burst of
+ * redraws therefore costs a request per round-trip, not a request per card -
+ * which matters, because a per-card cost on a 500-card board is a rate limit.
  */
 export function createRestSource(options: RestOptions): ChecklistSource & {
   invalidate(boardId?: string): void;
   pending(): number;
 } {
   const cache = new Map<string, CacheEntry>();
+  /** Every card this source has answered for. Card ids are globally unique. */
+  const drawn = new Set<string>();
 
   async function load(t: TrelloT, boardId: string): Promise<Map<string, Checklist[]>> {
     const api = t.getRestApi();
@@ -246,18 +270,43 @@ export function createRestSource(options: RestOptions): ChecklistSource & {
     return groupByCard(raw);
   }
 
-  function snapshot(t: TrelloT, boardId: string): Promise<Map<string, Checklist[]>> {
+  function snapshot(
+    t: TrelloT,
+    boardId: string,
+    redraw: boolean,
+  ): Promise<Map<string, Checklist[]>> {
     const hit = cache.get(boardId);
-    if (hit && hit.expiresAt > options.now()) return hit.promise;
+    if (hit && (!hit.sent || (!redraw && hit.expiresAt > options.now()))) return hit.promise;
 
-    const promise = load(t, boardId);
-    cache.set(boardId, { promise, expiresAt: options.now() + options.ttlMs });
-    // A failed request must not be cached, or one blip blanks the board for a
-    // full TTL and every retry in that window is suppressed.
-    promise.catch(() => {
-      if (cache.get(boardId)?.promise === promise) cache.delete(boardId);
-    });
-    return promise;
+    const entry: CacheEntry = {
+      // Replaced two lines down; `send` writes to the entry, so it must exist first.
+      promise: Promise.resolve(new Map()),
+      sent: false,
+      settled: false,
+      expiresAt: Number.POSITIVE_INFINITY,
+    };
+    const send = () => {
+      entry.sent = true;
+      entry.expiresAt = options.now() + options.ttlMs;
+      return load(t, boardId);
+    };
+    // Queued behind the in-flight request whether it succeeds or fails: the
+    // redraw that queued this is owed an answer either way.
+    entry.promise = hit && !hit.settled ? hit.promise.then(send, send) : send();
+    cache.set(boardId, entry);
+
+    entry.promise.then(
+      () => {
+        entry.settled = true;
+      },
+      () => {
+        entry.settled = true;
+        // A failed request must not be cached, or one blip blanks the board for
+        // a full TTL and every retry in that window is suppressed.
+        if (cache.get(boardId) === entry) cache.delete(boardId);
+      },
+    );
+    return entry.promise;
   }
 
   return {
@@ -265,8 +314,10 @@ export function createRestSource(options: RestOptions): ChecklistSource & {
     async forCard(t, cardId) {
       const boardId = t.getContext().board;
       if (!boardId) return unavailable('no board in context');
+      const redraw = drawn.has(cardId);
+      drawn.add(cardId);
       try {
-        const byCard = await snapshot(t, boardId);
+        const byCard = await snapshot(t, boardId, redraw);
         return byCard.get(cardId) ?? [];
       } catch (e) {
         return unavailable(String(e instanceof Error ? e.message : e));

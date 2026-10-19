@@ -403,6 +403,12 @@ That returns every checklist and item on the board, keyed by card — so 500 car
 that Trello fires while drawing a board share one request. Rate limits (100/10 s/token, 300/10 s/key)
 are then irrelevant.
 
+**[D, 2026-10-19]** The TTL applies only to a card's *first* draw. A second `card-badges` call for a
+card is Trello redrawing it because it changed, so it is answered by a request sent after it arrived —
+queued behind any in-flight one, and shared by every redraw until it goes out. Serving redraws from
+the TTL cache was a live bug: an item added and then dragged above the next action within 10 s left
+the old next action on the card front until the card next changed.
+
 Costs: an API key, `authorize.html`, the `authorization-status` and `show-authorization` capabilities,
 secret storage, an unauthorised badge state, and a worse first run.
 
